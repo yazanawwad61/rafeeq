@@ -1,0 +1,18 @@
+# Database — never push this
+roommate.db
+
+# API keys and secrets
+*.env
+config.py
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code settings
+.vscode/
+
+# Windows files
+Thumbs.db
+Desktop.ini
