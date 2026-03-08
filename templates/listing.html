@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Listing — Rafeeq</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Tajawal', sans-serif;
+      background: #f5f5f0;
+      color: #1a1a2e;
+    }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      background: #fff;
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #e8e4dc;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .navbar-logo {
+      font-size: 22px;
+      font-weight: 700;
+      color: #2d6a4f;
+      text-decoration: none;
+    }
+    .navbar-logo span { color: #e76f51; }
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #2d6a4f;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .back-btn:hover { background: #f0faf4; }
+
+    /* ── MAIN LAYOUT ── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    /* ── LOADING / ERROR ── */
+    .loading {
+      text-align: center;
+      padding: 80px 0;
+      color: #888;
+      font-size: 16px;
+    }
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e8e4dc;
+      border-top: 3px solid #2d6a4f;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-box {
+      text-align: center;
+      padding: 80px 0;
+      color: #888;
+    }
+    .error-box h2 { font-size: 22px; margin-bottom: 8px; color: #1a1a2e; }
+
+    /* ── PHOTO GALLERY ── */
+    .gallery {
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 28px;
+      background: #e8e4dc;
+    }
+    .gallery-main {
+      width: 100%;
+      height: 420px;
+      object-fit: cover;
+      display: block;
+      cursor: pointer;
+    }
+    .gallery-thumbs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: #fff;
+    }
+    .gallery-thumb {
+      width: 80px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+    .gallery-thumb.active, .gallery-thumb:hover { opacity: 1; }
+    .gallery-placeholder {
+      width: 100%;
+      height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: #ccc;
+      background: #f0ede8;
+    }
+
+    /* ── HEADER SECTION ── */
+    .listing-header {
+      margin-bottom: 24px;
+    }
+    .listing-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .badge-area   { background: #e8f5e9; color: #2d6a4f; }
+    .badge-type   { background: #fff3e0; color: #e65100; }
+    .badge-male   { background: #e3f2fd; color: #1565c0; }
+    .badge-female { background: #fce4ec; color: #880e4f; }
+    .badge-any    { background: #f3e5f5; color: #6a1b9a; }
+
+    /* ── STATS GRID ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    @media (min-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e8e4dc;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .stat-value.rent { color: #2d6a4f; font-size: 22px; }
+
+    /* ── DESCRIPTION ── */
+    .section {
+      background: #fff;
+      border: 1px solid #e8e4dc;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0ede8;
+    }
+    .description-text {
+      font-size: 15px;
+      color: #444;
+      line-height: 1.8;
+    }
+
+    /* ── TAGS ── */
+    .tags-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tag {
+      background: #f0faf4;
+      border: 1px solid #b7e4c7;
+      color: #2d6a4f;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    /* ── OWNER CARD ── */
+    .owner-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .owner-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #2d6a4f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .owner-info { flex: 1; }
+    .owner-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .owner-label {
+      font-size: 13px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    /* ── CONTACT BUTTON ── */
+    .contact-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: #2d6a4f;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'Tajawal', sans-serif;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 20px;
+      transition: background 0.2s, transform 0.1s;
+      text-decoration: none;
+    }
+    .contact-btn:hover { background: #1b4332; }
+    .contact-btn:active { transform: scale(0.99); }
+
+    /* ── REPORT LINK ── */
+    .report-link {
+      text-align: center;
+      margin-top: 32px;
+    }
+    .report-link button {
+      background: none;
+      border: none;
+      color: #ccc;
+      font-size: 13px;
+      font-family: 'Tajawal', sans-serif;
+      cursor: pointer;
+      text-decoration: underline;
+      transition: color 0.2s;
+    }
+    .report-link button:hover { color: #e76f51; }
+
+    /* ── REPORT MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+    }
+    .modal h3 { font-size: 18px; margin-bottom: 16px; }
+    .modal select, .modal textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #e8e4dc;
+      border-radius: 8px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 14px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    .modal select:focus, .modal textarea:focus { border-color: #2d6a4f; }
+    .modal textarea { resize: vertical; height: 90px; }
+    .modal-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .modal-btns button {
+      flex: 1;
+      padding: 11px;
+      border-radius: 8px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-cancel { background: #f5f5f0; color: #888; }
+    .btn-submit { background: #e76f51; color: #fff; }
+    .btn-cancel:hover { background: #e8e4dc; }
+    .btn-submit:hover { background: #cf5a3e; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="back-btn">← Back to listings</a>
+  <a href="/" class="navbar-logo">Rafeeq <span>رفيق</span></a>
+</nav>
+
+<!-- CONTENT -->
+<div class="container">
+  <div id="loading" class="loading">
+    <div class="loading-spinner"></div>
+    Loading listing...
+  </div>
+  <div id="error" class="error-box" style="display:none;">
+    <h2>Listing not found</h2>
+    <p>This listing may have been removed or does not exist.</p>
+  </div>
+  <div id="content" style="display:none;"></div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <h3>Report this listing</h3>
+    <select id="reportReason">
+      <option value="">Select a reason</option>
+      <option value="fake">Fake listing</option>
+      <option value="harassment">Harassment</option>
+      <option value="discrimination">Discrimination</option>
+      <option value="other">Other</option>
+    </select>
+    <textarea id="reportDesc" placeholder="Describe the issue (optional)"></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeReport()">Cancel</button>
+      <button class="btn-submit" onclick="submitReport()">Submit Report</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Get listing ID from URL (/listing/1 → 1)
+  const listingId = window.location.pathname.split('/').pop();
+  let currentListing = null;
+  let currentPhotoIndex = 0;
+
+  // ── LOAD LISTING ──────────────────────────────────────────────
+  async function loadListing() {
+    try {
+      const res = await fetch(`/api/listings/${listingId}`);
+      if (!res.ok) throw new Error('Not found');
+      const listing = await res.json();
+      currentListing = listing;
+      renderListing(listing);
+    } catch (e) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+    }
+  }
+
+  // ── RENDER ────────────────────────────────────────────────────
+  function renderListing(l) {
+    document.title = `${l.title} — Rafeeq`;
+
+    const genderBadge = {
+      male:   `<span class="badge badge-male">👨 Males Only</span>`,
+      female: `<span class="badge badge-female">👩 Females Only</span>`,
+      any:    `<span class="badge badge-any">👥 Any Gender</span>`
+    }[l.gender_preference] || '';
+
+    const typeBadge = `<span class="badge badge-type">🏠 ${l.apartment_type === 'shared' ? 'Shared' : 'Private'}</span>`;
+    const areaBadge = `<span class="badge badge-area">📍 ${l.area}</span>`;
+
+    const tags = (l.tags || []).map(t =>
+      `<span class="tag">${t}</span>`
+    ).join('');
+
+    // Photo gallery
+    let galleryHTML = '';
+    if (l.photos && l.photos.length > 0) {
+      const thumbs = l.photos.map((p, i) =>
+        `<img src="/${p}" class="gallery-thumb ${i===0?'active':''}"
+              onclick="changePhoto(${i})" />`
+      ).join('');
+      galleryHTML = `
+        <div class="gallery">
+          <img id="mainPhoto" src="/${l.photos[0]}" class="gallery-main" />
+          ${l.photos.length > 1 ? `<div class="gallery-thumbs">${thumbs}</div>` : ''}
+        </div>`;
+    } else {
+      galleryHTML = `
+        <div class="gallery">
+          <div class="gallery-placeholder">🏠</div>
+        </div>`;
+    }
+
+    const ownerInitial = (l.owner_name || '?')[0].toUpperCase();
+
+    document.getElementById('content').innerHTML = `
+      ${galleryHTML}
+
+      <div class="listing-header">
+        <h1 class="listing-title">${l.title}</h1>
+        <div class="badges">${areaBadge}${typeBadge}${genderBadge}</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Monthly Rent</div>
+          <div class="stat-value rent">${l.rent} JD</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Rooms</div>
+          <div class="stat-value">${l.rooms || '—'} rooms</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Type</div>
+          <div class="stat-value">${l.apartment_type}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Area</div>
+          <div class="stat-value">${l.area}</div>
+        </div>
+      </div>
+
+      ${l.description ? `
+      <div class="section">
+        <div class="section-title">About this listing</div>
+        <p class="description-text">${l.description}</p>
+      </div>` : ''}
+
+      ${tags ? `
+      <div class="section">
+        <div class="section-title">Lifestyle & Preferences</div>
+        <div class="tags-list">${tags}</div>
+      </div>` : ''}
+
+      <div class="section">
+        <div class="section-title">Listed by</div>
+        <div class="owner-card">
+          <div class="owner-avatar">${ownerInitial}</div>
+          <div class="owner-info">
+            <div class="owner-name">${l.owner_name}</div>
+            <div class="owner-label">Listing owner</div>
+          </div>
+        </div>
+        <button class="contact-btn" onclick="contactOwner()">💬 Contact Owner</button>
+      </div>
+
+      <div class="report-link">
+        <button onclick="openReport()">Report this listing</button>
+      </div>
+    `;
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+  }
+
+  // ── PHOTO GALLERY ─────────────────────────────────────────────
+  function changePhoto(index) {
+    if (!currentListing || !currentListing.photos) return;
+    currentPhotoIndex = index;
+    document.getElementById('mainPhoto').src = '/' + currentListing.photos[index];
+    document.querySelectorAll('.gallery-thumb').forEach((t, i) => {
+      t.classList.toggle('active', i === index);
+    });
+  }
+
+  // ── CONTACT OWNER ─────────────────────────────────────────────
+  function contactOwner() {
+    // Will be replaced with real messaging in Stage 5
+    alert('Messaging system coming in Stage 5!');
+  }
+
+  // ── REPORT ────────────────────────────────────────────────────
+  function openReport()  { document.getElementById('reportModal').classList.add('open'); }
+  function closeReport() { document.getElementById('reportModal').classList.remove('open'); }
+
+  async function submitReport() {
+    const reason = document.getElementById('reportReason').value;
+    const desc   = document.getElementById('reportDesc').value;
+
+    if (!reason) { alert('Please select a reason.'); return; }
+
+    try {
+      const res = await fetch(`/api/listings/${listingId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, description: desc })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        closeReport();
+        alert('Report submitted. Thank you.');
+      } else {
+        alert(data.error || 'Failed to submit report.');
+      }
+    } catch (e) {
+      alert('Something went wrong. Please try again.');
+    }
+  }
+
+  // ── INIT ──────────────────────────────────────────────────────
+  loadListing();
+</script>
+</body>
+</html>
