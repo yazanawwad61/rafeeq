@@ -1,8 +1,12 @@
 import os
 import secrets
+import bleach
 from flask import Flask, request, jsonify, session, render_template
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message
+from flask_mail import Mail, Message as MailMessage
 from PIL import Image
 from werkzeug.utils import secure_filename
 import sqlite3
@@ -10,11 +14,21 @@ import sqlite3
 app = Flask(__name__)
 app.secret_key = 'rafeeq-secret-key-2026'
 
+# ── SOCKETIO ───────────────────────────────────────────────────────
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
+
+# ── RATE LIMITER ───────────────────────────────────────────────────
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]
+)
+
 # ── EMAIL CONFIG ───────────────────────────────────────────────────
-# Replace these with your Gmail address and App Password
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = 'yazanawwad61@gmail.com'
 app.config['MAIL_PASSWORD'] = 'bzox obis orfo ackh'
 app.config['MAIL_DEFAULT_SENDER'] = 'yazanawwad61@gmail.com'
@@ -38,6 +52,10 @@ def get_db():
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def sanitize(text):
+    return bleach.clean(str(text).strip(), tags=[], strip=True)
+
 # ── FRONTEND ROUTES ────────────────────────────────────────────────
 
 
@@ -50,6 +68,11 @@ def index():
 def listing_page(listing_id):
     return render_template('listing.html', listing_id=listing_id)
 
+
+@app.route('/messages')
+def messages_page():
+    return render_template('messages.html')
+
 # ══════════════════════════════════════════════════════════════════
 # AUTH ROUTES
 # ══════════════════════════════════════════════════════════════════
@@ -59,13 +82,12 @@ def listing_page(listing_id):
 def signup():
     try:
         data = request.get_json()
-        name = data.get('name', '').strip()
+        name = sanitize(data.get('name', ''))
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
         gender = data.get('gender', '').strip().lower()
-        phone = data.get('phone', '').strip()
+        phone = sanitize(data.get('phone', ''))
 
-        # Validation
         if not all([name, email, password, gender]):
             return jsonify({'error': 'Name, email, password, and gender are required'}), 400
         if gender not in ('male', 'female'):
@@ -85,33 +107,27 @@ def signup():
         conn.commit()
         conn.close()
 
-        # Send verification email
         try:
             verify_url = f"http://127.0.0.1:5000/api/verify-email/{verify_token}"
-            msg = Message(
+            msg = MailMessage(
                 subject="Verify your Rafeeq account",
                 recipients=[email],
                 html=f"""
-                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-                    <h2 style="color: #2d6a4f;">Welcome to Rafeeq, {name}!</h2>
-                    <p>Please verify your email address to activate your account.</p>
+                <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+                    <h2 style="color:#2d6a4f;">Welcome to Rafeeq!</h2>
+                    <p>Please verify your email to activate your account.</p>
                     <a href="{verify_url}"
-                       style="background:#2d6a4f; color:white; padding:12px 24px;
-                              text-decoration:none; border-radius:8px; display:inline-block;">
+                       style="background:#2d6a4f;color:white;padding:12px 24px;
+                              text-decoration:none;border-radius:8px;display:inline-block;">
                         Verify My Email
                     </a>
-                    <p style="color:#888; margin-top:20px; font-size:13px;">
-                        If you did not create a Rafeeq account, ignore this email.
-                    </p>
-                </div>
-                """
+                </div>"""
             )
             mail.send(msg)
         except Exception as mail_error:
             print(f"Email send failed: {mail_error}")
-            # Don't block signup if email fails — still create the account
 
-        return jsonify({'message': 'Account created. Please check your email to verify your account.'}), 201
+        return jsonify({'message': 'Account created. Please check your email to verify.'}), 201
 
     except sqlite3.IntegrityError:
         return jsonify({'error': 'An account with this email already exists'}), 409
@@ -136,12 +152,11 @@ def verify_email(token):
             'UPDATE users SET is_verified = 1, verify_token = NULL WHERE id = ?', (user['id'],))
         conn.commit()
         conn.close()
-
-        return jsonify({'message': 'Email verified successfully. You can now log in.'}), 200
+        return jsonify({'message': 'Email verified. You can now log in.'}), 200
 
     except Exception as e:
         print(f"Verify email error: {e}")
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+        return jsonify({'error': 'Something went wrong.'}), 500
 
 
 @app.route('/api/login', methods=['POST'])
@@ -162,7 +177,6 @@ def login():
 
         if not user or not check_password_hash(user['password'], password):
             return jsonify({'error': 'Incorrect email or password'}), 401
-
         if not user['is_verified']:
             return jsonify({'error': 'Please verify your email before logging in'}), 403
 
@@ -172,16 +186,12 @@ def login():
 
         return jsonify({
             'message': 'Logged in successfully',
-            'user': {
-                'id':     user['id'],
-                'name':   user['name'],
-                'gender': user['gender']
-            }
+            'user': {'id': user['id'], 'name': user['name'], 'gender': user['gender']}
         }), 200
 
     except Exception as e:
         print(f"Login error: {e}")
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+        return jsonify({'error': 'Something went wrong.'}), 500
 
 
 @app.route('/api/logout', methods=['POST'])
@@ -190,7 +200,6 @@ def logout():
         session.clear()
         return jsonify({'message': 'Logged out successfully'}), 200
     except Exception as e:
-        print(f"Logout error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
@@ -205,7 +214,6 @@ def me():
             'gender': session['user_gender']
         }), 200
     except Exception as e:
-        print(f"Me error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
@@ -220,12 +228,12 @@ def create_listing():
             return jsonify({'error': 'Login required'}), 401
 
         data = request.get_json()
-        title = data.get('title', '').strip()
-        description = data.get('description', '').strip()
+        title = sanitize(data.get('title', ''))
+        description = sanitize(data.get('description', ''))
         apartment_type = data.get('apartment_type', '').strip().lower()
         gender_preference = data.get('gender_preference', '').strip().lower()
         rent = data.get('rent')
-        area = data.get('area', '').strip()
+        area = sanitize(data.get('area', ''))
         latitude = data.get('latitude')
         longitude = data.get('longitude')
         rooms = data.get('rooms')
@@ -249,19 +257,17 @@ def create_listing():
               gender_preference, rent, area, latitude, longitude, rooms))
 
         listing_id = cursor.lastrowid
-
         for tag in tags:
             cursor.execute('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)',
-                           (listing_id, tag.strip()))
+                           (listing_id, sanitize(tag)))
 
         conn.commit()
         conn.close()
-
         return jsonify({'message': 'Listing submitted for review', 'listing_id': listing_id}), 201
 
     except Exception as e:
         print(f"Create listing error: {e}")
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+        return jsonify({'error': 'Something went wrong.'}), 500
 
 
 @app.route('/api/listings', methods=['GET'])
@@ -304,22 +310,21 @@ def get_listings():
 
         result = []
         for listing in listings:
-            listing_dict = dict(listing)
+            d = dict(listing)
             cursor.execute(
                 'SELECT tag FROM listing_tags WHERE listing_id = ?', (listing['id'],))
-            listing_dict['tags'] = [row['tag'] for row in cursor.fetchall()]
+            d['tags'] = [r['tag'] for r in cursor.fetchall()]
             cursor.execute(
                 'SELECT photo_path FROM listing_photos WHERE listing_id = ?', (listing['id'],))
-            listing_dict['photos'] = [row['photo_path']
-                                      for row in cursor.fetchall()]
-            result.append(listing_dict)
+            d['photos'] = [r['photo_path'] for r in cursor.fetchall()]
+            result.append(d)
 
         conn.close()
         return jsonify(result), 200
 
     except Exception as e:
         print(f"Get listings error: {e}")
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+        return jsonify({'error': 'Something went wrong.'}), 500
 
 
 @app.route('/api/listings/<int:listing_id>', methods=['GET'])
@@ -328,7 +333,8 @@ def get_listing(listing_id):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT l.*, u.name AS owner_name, u.phone AS owner_phone, u.gender AS owner_gender
+            SELECT l.*, u.name AS owner_name, u.phone AS owner_phone,
+                   u.gender AS owner_gender, u.id AS owner_id
             FROM listings l
             JOIN users u ON l.user_id = u.id
             WHERE l.id = ?
@@ -339,33 +345,28 @@ def get_listing(listing_id):
             conn.close()
             return jsonify({'error': 'Listing not found'}), 404
 
-        listing_dict = dict(listing)
-
+        d = dict(listing)
         cursor.execute(
             'SELECT tag FROM listing_tags WHERE listing_id = ?', (listing_id,))
-        listing_dict['tags'] = [row['tag'] for row in cursor.fetchall()]
-
+        d['tags'] = [r['tag'] for r in cursor.fetchall()]
         cursor.execute(
             'SELECT photo_path FROM listing_photos WHERE listing_id = ?', (listing_id,))
-        listing_dict['photos'] = [row['photo_path']
-                                  for row in cursor.fetchall()]
+        d['photos'] = [r['photo_path'] for r in cursor.fetchall()]
 
         conn.close()
-        return jsonify(listing_dict), 200
+        return jsonify(d), 200
 
     except Exception as e:
         print(f"Get listing error: {e}")
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+        return jsonify({'error': 'Something went wrong.'}), 500
 
 
-# ── PHOTO UPLOAD ───────────────────────────────────────────────────
 @app.route('/api/listings/<int:listing_id>/photos', methods=['POST'])
 def upload_photo(listing_id):
     try:
         if 'user_id' not in session:
             return jsonify({'error': 'Login required'}), 401
 
-        # Verify this listing belongs to the logged-in user
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
@@ -384,49 +385,37 @@ def upload_photo(listing_id):
             return jsonify({'error': 'No photo provided'}), 400
 
         file = request.files['photo']
-
-        if file.filename == '':
-            conn.close()
-            return jsonify({'error': 'No file selected'}), 400
-
         if not allowed_file(file.filename):
             conn.close()
-            return jsonify({'error': 'Only JPG, PNG and WEBP files are allowed'}), 400
+            return jsonify({'error': 'Only JPG, PNG and WEBP allowed'}), 400
 
-        # Open with Pillow — rejects non-image files automatically
         img = Image.open(file)
         img.verify()
-
         file.seek(0)
         img = Image.open(file)
 
-        # Resize if too wide
         if img.width > MAX_IMAGE_WIDTH:
             ratio = MAX_IMAGE_WIDTH / img.width
             new_height = int(img.height * ratio)
             img = img.resize((MAX_IMAGE_WIDTH, new_height), Image.LANCZOS)
 
-        # Save to uploads folder
         filename = secure_filename(
             f"listing_{listing_id}_{secrets.token_hex(8)}.jpg")
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         save_path = os.path.join(UPLOAD_FOLDER, filename)
         img.convert('RGB').save(save_path, 'JPEG', quality=85)
 
-        # Save path to database
         cursor.execute('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)',
                        (listing_id, save_path))
         conn.commit()
         conn.close()
-
-        return jsonify({'message': 'Photo uploaded successfully', 'path': save_path}), 201
+        return jsonify({'message': 'Photo uploaded', 'path': save_path}), 201
 
     except Exception as e:
         print(f"Photo upload error: {e}")
-        return jsonify({'error': 'Invalid image file or upload failed'}), 400
+        return jsonify({'error': 'Invalid image file'}), 400
 
 
-# ── REPORT A LISTING ───────────────────────────────────────────────
 @app.route('/api/listings/<int:listing_id>/report', methods=['POST'])
 def report_listing(listing_id):
     try:
@@ -435,10 +424,10 @@ def report_listing(listing_id):
 
         data = request.get_json()
         reason = data.get('reason', '').strip().lower()
-        description = data.get('description', '').strip()
+        description = sanitize(data.get('description', ''))
 
         if reason not in ('fake', 'harassment', 'discrimination', 'other'):
-            return jsonify({'error': 'Reason must be: fake, harassment, discrimination, or other'}), 400
+            return jsonify({'error': 'Invalid reason'}), 400
 
         conn = get_db()
         cursor = conn.cursor()
@@ -448,12 +437,194 @@ def report_listing(listing_id):
         ''', (session['user_id'], listing_id, reason, description))
         conn.commit()
         conn.close()
-
-        return jsonify({'message': 'Report submitted. Our team will review it shortly.'}), 201
+        return jsonify({'message': 'Report submitted.'}), 201
 
     except Exception as e:
         print(f"Report error: {e}")
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+# ══════════════════════════════════════════════════════════════════
+# MESSAGING ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/api/conversations', methods=['GET'])
+def get_conversations():
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+
+        user_id = session['user_id']
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT
+                m.listing_id,
+                l.title AS listing_title,
+                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS other_user_id,
+                CASE WHEN m.sender_id = ? THEN ru.name ELSE su.name END AS other_user_name,
+                m.message AS last_message,
+                m.created_at AS last_message_time,
+                SUM(CASE WHEN m.is_read = 0 AND m.receiver_id = ? THEN 1 ELSE 0 END) AS unread_count
+            FROM messages m
+            JOIN listings l ON m.listing_id = l.id
+            JOIN users su ON m.sender_id = su.id
+            JOIN users ru ON m.receiver_id = ru.id
+            WHERE m.sender_id = ? OR m.receiver_id = ?
+            GROUP BY m.listing_id,
+                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+            ORDER BY m.created_at DESC
+        ''', (user_id, user_id, user_id, user_id, user_id, user_id))
+
+        conversations = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify(conversations), 200
+
+    except Exception as e:
+        print(f"Get conversations error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/messages/<int:listing_id>/<int:other_user_id>', methods=['GET'])
+def get_messages(listing_id, other_user_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+
+        user_id = session['user_id']
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT m.*, u.name AS sender_name
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            WHERE m.listing_id = ?
+            AND (
+                (m.sender_id = ? AND m.receiver_id = ?)
+                OR
+                (m.sender_id = ? AND m.receiver_id = ?)
+            )
+            ORDER BY m.created_at ASC
+        ''', (listing_id, user_id, other_user_id, other_user_id, user_id))
+
+        messages = [dict(row) for row in cursor.fetchall()]
+
+        cursor.execute('''
+            UPDATE messages SET is_read = 1
+            WHERE listing_id = ? AND receiver_id = ? AND sender_id = ?
+        ''', (listing_id, user_id, other_user_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify(messages), 200
+
+    except Exception as e:
+        print(f"Get messages error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/messages', methods=['POST'])
+@limiter.limit("50 per day")
+def send_message_http():
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+
+        data = request.get_json()
+        receiver_id = data.get('receiver_id')
+        listing_id = data.get('listing_id')
+        message = sanitize(data.get('message', ''))
+
+        if not all([receiver_id, listing_id, message]):
+            return jsonify({'error': 'receiver_id, listing_id, and message are required'}), 400
+        if len(message) > 1000:
+            return jsonify({'error': 'Message cannot exceed 1000 characters'}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO messages (sender_id, receiver_id, listing_id, message)
+            VALUES (?, ?, ?, ?)
+        ''', (session['user_id'], receiver_id, listing_id, message))
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': 'Message sent'}), 201
+
+    except Exception as e:
+        print(f"Send message error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+# ══════════════════════════════════════════════════════════════════
+# SOCKETIO EVENTS
+# ══════════════════════════════════════════════════════════════════
+
+@socketio.on('join_chat')
+def handle_join(data):
+    listing_id = data.get('listing_id')
+    other_user_id = data.get('other_user_id')
+    user_id = session.get('user_id')
+    if not user_id:
+        return
+    room = f"chat_{listing_id}_{min(user_id, other_user_id)}_{max(user_id, other_user_id)}"
+    join_room(room)
+    emit('joined', {'room': room})
+
+
+@socketio.on('send_message')
+def handle_message(data):
+    user_id = session.get('user_id')
+    if not user_id:
+        return
+
+    receiver_id = data.get('receiver_id')
+    listing_id = data.get('listing_id')
+    message = sanitize(data.get('message', ''))
+
+    if not message or len(message) > 1000:
+        return
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO messages (sender_id, receiver_id, listing_id, message)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, receiver_id, listing_id, message))
+        message_id = cursor.lastrowid
+
+        cursor.execute('SELECT name FROM users WHERE id = ?', (user_id,))
+        sender = cursor.fetchone()
+        conn.commit()
+        conn.close()
+
+        room = f"chat_{listing_id}_{min(user_id, receiver_id)}_{max(user_id, receiver_id)}"
+        emit('new_message', {
+            'id':          message_id,
+            'sender_id':   user_id,
+            'sender_name': sender['name'],
+            'receiver_id': receiver_id,
+            'listing_id':  listing_id,
+            'message':     message,
+            'created_at':  'just now'
+        }, room=room)
+
+    except Exception as e:
+        print(f"SocketIO message error: {e}")
+
+
+@socketio.on('leave_chat')
+def handle_leave(data):
+    listing_id = data.get('listing_id')
+    other_user_id = data.get('other_user_id')
+    user_id = session.get('user_id')
+    if not user_id:
+        return
+    room = f"chat_{listing_id}_{min(user_id, other_user_id)}_{max(user_id, other_user_id)}"
+    leave_room(room)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -475,9 +646,7 @@ def get_pending_listings():
         listings = [dict(row) for row in cursor.fetchall()]
         conn.close()
         return jsonify(listings), 200
-
     except Exception as e:
-        print(f"Pending listings error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
@@ -491,9 +660,7 @@ def approve_listing(listing_id):
         conn.commit()
         conn.close()
         return jsonify({'message': f'Listing {listing_id} approved'}), 200
-
     except Exception as e:
-        print(f"Approve listing error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
@@ -507,9 +674,7 @@ def reject_listing(listing_id):
         conn.commit()
         conn.close()
         return jsonify({'message': f'Listing {listing_id} rejected'}), 200
-
     except Exception as e:
-        print(f"Reject listing error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
@@ -529,12 +694,10 @@ def get_reports():
         reports = [dict(row) for row in cursor.fetchall()]
         conn.close()
         return jsonify(reports), 200
-
     except Exception as e:
-        print(f"Get reports error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════════
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)

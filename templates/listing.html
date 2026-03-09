@@ -389,7 +389,17 @@
   const listingId = window.location.pathname.split('/').pop();
   let currentListing = null;
   let currentPhotoIndex = 0;
+  let socket = null;
+  let currentUser = null;
 
+  async function checkAuth() {
+    try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+            currentUser = await res.json();
+        }
+    } catch (e) {}
+  }
   // ── LOAD LISTING ──────────────────────────────────────────────
   async function loadListing() {
     try {
@@ -513,11 +523,98 @@
   }
 
   // ── CONTACT OWNER ─────────────────────────────────────────────
-  function contactOwner() {
-    // Will be replaced with real messaging in Stage 5
-    alert('Messaging system coming in Stage 5!');
-  }
+function contactOwner() {
+    if (!currentUser) {
+        window.location.href = '/';
+        return;
+    }
+    if (currentUser.id === currentListing.owner_id) {
+        alert('This is your own listing.');
+        return;
+    }
+    openChat();
+}
 
+function openChat() {
+    document.getElementById('chatModal').style.display = 'flex';
+    document.getElementById('chatTitle').textContent = currentListing.title;
+    document.getElementById('chatSubtitle').textContent = `with ${currentListing.owner_name}`;
+    loadChatHistory();
+    joinChatRoom();
+}
+
+function closeChat() {
+    document.getElementById('chatModal').style.display = 'none';
+    if (socket) {
+        socket.emit('leave_chat', {
+            listing_id: currentListing.id,
+            other_user_id: currentListing.owner_id
+        });
+    }
+}
+
+async function loadChatHistory() {
+    try {
+        const res = await fetch(`/api/messages/${currentListing.id}/${currentListing.owner_id}`);
+        if (!res.ok) return;
+        const messages = await res.json();
+        const box = document.getElementById('chatMessages');
+        box.innerHTML = '';
+        messages.forEach(m => appendMessage(m.sender_id, m.sender_name, m.message, m.created_at));
+        box.scrollTop = box.scrollHeight;
+    } catch (e) {}
+}
+
+function appendMessage(senderId, senderName, message, time) {
+    const box = document.getElementById('chatMessages');
+    const isMe = currentUser && senderId === currentUser.id;
+    const div = document.createElement('div');
+    div.style.cssText = `
+        display:flex; flex-direction:column;
+        align-items:${isMe ? 'flex-end' : 'flex-start'};
+        margin-bottom:12px;
+    `;
+    div.innerHTML = `
+        ${!isMe ? `<span style="font-size:12px;color:#888;margin-bottom:3px;">${senderName}</span>` : ''}
+        <div style="
+            max-width:70%; padding:10px 14px; border-radius:${isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};
+            background:${isMe ? '#2d6a4f' : '#f0ede8'}; color:${isMe ? '#fff' : '#1a1a2e'};
+            font-size:14px; line-height:1.5;
+        ">${message}</div>
+        <span style="font-size:11px;color:#bbb;margin-top:3px;">${time}</span>
+    `;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+function joinChatRoom() {
+    if (!socket) initSocket();
+    socket.emit('join_chat', {
+        listing_id: currentListing.id,
+        other_user_id: currentListing.owner_id
+    });
+}
+
+function initSocket() {
+    socket = io();
+    socket.on('new_message', (data) => {
+        appendMessage(data.sender_id, data.sender_name, data.message, data.created_at);
+    });
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+
+    socket.emit('send_message', {
+        receiver_id: currentListing.owner_id,
+        listing_id: currentListing.id,
+        message: message
+    });
+}
   // ── REPORT ────────────────────────────────────────────────────
   function openReport()  { document.getElementById('reportModal').classList.add('open'); }
   function closeReport() { document.getElementById('reportModal').classList.remove('open'); }
@@ -547,7 +644,43 @@
   }
 
   // ── INIT ──────────────────────────────────────────────────────
+  checkAuth();
   loadListing();
 </script>
+<!-- CHAT MODAL -->
+<div id="chatModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+     z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:#fff; border-radius:16px; width:100%; max-width:480px;
+              display:flex; flex-direction:column; height:560px;">
+
+    <!-- Header -->
+    <div style="padding:20px 24px; border-bottom:1px solid #e8e4dc;
+                display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-weight:700; font-size:16px;" id="chatTitle">Chat</div>
+        <div style="font-size:13px; color:#888;" id="chatSubtitle"></div>
+      </div>
+      <button onclick="closeChat()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">✕</button>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages" style="flex:1; overflow-y:auto; padding:20px;"></div>
+
+    <!-- Input -->
+    <div style="padding:16px 20px; border-top:1px solid #e8e4dc; display:flex; gap:10px;">
+      <input id="chatInput" type="text" placeholder="Type a message..."
+        onkeydown="if(event.key==='Enter') sendChatMessage()"
+        style="flex:1; padding:10px 14px; border:1px solid #e8e4dc; border-radius:24px;
+               font-family:'Tajawal',sans-serif; font-size:14px; outline:none;"/>
+      <button onclick="sendChatMessage()"
+        style="background:#2d6a4f; color:#fff; border:none; border-radius:50%;
+               width:42px; height:42px; font-size:18px; cursor:pointer; flex-shrink:0;">➤</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- SOCKETIO -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </body>
 </html>
