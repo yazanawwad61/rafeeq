@@ -26,10 +26,10 @@ Rafeeq is a verified, map-based platform where users can browse available apartm
 - Stage 1 — Database Design ✅
 - Stage 2 — User Authentication ✅
 - Stage 3 — Listings & Google Maps ✅
-- Stage 4 — Listing Detail Pages & Auth UI (in progress)
-- Stage 5 — Messaging System
-- Stage 6 — Admin Panel
-- Stage 7 — PWA & Deployment
+- Stage 4 — Listing Detail Pages & Auth UI (in progress) ✅
+- Stage 5 — Messaging System ✅
+- Stage 6 — Admin Panel ✅
+- Stage 7 — PWA & Deployment ✅
 
 ## Author
 Yazan Awwad — Built from scratch, March 2026

@@ -12,8 +12,7 @@ from werkzeug.utils import secure_filename
 import sqlite3
 
 app = Flask(__name__)
-app.secret_key = 'rafeeq-secret-key-2026'
-
+app.secret_key = os.environ.get('SECRET_KEY', 'rafeeq-dev-secret-2026')
 # ── SOCKETIO ───────────────────────────────────────────────────────
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 
@@ -30,7 +29,8 @@ app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = 'yazanawwad61@gmail.com'
-app.config['MAIL_PASSWORD'] = 'bzox obis orfo ackh'
+app.config['MAIL_PASSWORD'] = os.environ.get(
+    'MAIL_PASSWORD', 'bzox obis orfo ackh')
 app.config['MAIL_DEFAULT_SENDER'] = 'yazanawwad61@gmail.com'
 
 mail = Mail(app)

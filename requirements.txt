@@ -1,0 +1,9 @@
+flask
+flask-socketio
+flask-mail
+flask-limiter
+eventlet
+werkzeug
+pillow
+bleach
+gunicorn
