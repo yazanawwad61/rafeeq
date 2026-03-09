@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard — Rafeeq</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Tajawal', sans-serif;
+      background: #f5f5f0;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 240px;
+      height: 100vh;
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 28px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-logo h1 { font-size: 22px; font-weight: 800; color: #fff; }
+    .sidebar-logo h1 span { color: #e76f51; }
+    .sidebar-logo p { font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .sidebar-nav { flex: 1; padding: 16px 0; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      color: #aaa;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 14px;
+      font-weight: 500;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .nav-item.active { color: #fff; background: rgba(45,106,79,0.3); border-left-color: #2d6a4f; }
+    .nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
+    .sidebar-footer {
+      padding: 16px 24px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .admin-email { font-size: 12px; color: #666; margin-bottom: 10px; word-break: break-all; }
+    .logout-btn {
+      width: 100%;
+      padding: 10px;
+      background: rgba(231,111,81,0.15);
+      color: #e76f51;
+      border: 1px solid rgba(231,111,81,0.3);
+      border-radius: 8px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(231,111,81,0.25); }
+
+    /* ── MAIN ── */
+    .main {
+      margin-left: 240px;
+      padding: 32px;
+      min-height: 100vh;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #1a1a2e;
+    }
+
+    /* ── TABS ── */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── STATS GRID ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      border: 1px solid #e8e4dc;
+    }
+    .stat-icon { font-size: 28px; margin-bottom: 10px; }
+    .stat-value { font-size: 32px; font-weight: 800; color: #1a1a2e; }
+    .stat-label { font-size: 13px; color: #888; margin-top: 4px; }
+    .stat-card.alert .stat-value { color: #e76f51; }
+    .stat-card.success .stat-value { color: #2d6a4f; }
+
+    /* ── TABLES ── */
+    .section-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e8e4dc;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .section-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0ede8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-header h3 { font-size: 16px; font-weight: 700; }
+    .section-header span { font-size: 13px; color: #888; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      padding: 12px 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #fafaf8;
+      border-bottom: 1px solid #f0ede8;
+    }
+    td {
+      padding: 14px 20px;
+      font-size: 14px;
+      border-bottom: 1px solid #f5f5f0;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafaf8; }
+    .empty-row td { text-align: center; color: #aaa; padding: 32px; }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-pending  { background: #fff3e0; color: #e65100; }
+    .badge-approved { background: #e8f5e9; color: #2d6a4f; }
+    .badge-rejected { background: #fce4ec; color: #880e4f; }
+    .badge-male     { background: #e3f2fd; color: #1565c0; }
+    .badge-female   { background: #fce4ec; color: #880e4f; }
+    .badge-verified { background: #e8f5e9; color: #2d6a4f; }
+    .badge-unverified { background: #f5f5f0; color: #888; }
+
+    /* ── ACTION BUTTONS ── */
+    .btn-approve {
+      background: #2d6a4f;
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 6px;
+      transition: background 0.2s;
+    }
+    .btn-approve:hover { background: #1b4332; }
+    .btn-reject {
+      background: #fce4ec;
+      color: #880e4f;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-reject:hover { background: #f8bbd0; }
+    .btn-resolve {
+      background: #e3f2fd;
+      color: #1565c0;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-resolve:hover { background: #bbdefb; }
+
+    /* ── ADD ADMIN FORM ── */
+    .add-admin-form {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e8e4dc;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .add-admin-form h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .form-row input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #e8e4dc;
+      border-radius: 8px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-row input:focus { border-color: #2d6a4f; }
+    .form-row label { font-size: 12px; color: #888; font-weight: 600; display: block; margin-bottom: 5px; }
+    .btn-add {
+      padding: 10px 20px;
+      background: #2d6a4f;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Tajawal', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-add:hover { background: #1b4332; }
+    .form-msg { font-size: 13px; margin-top: 10px; min-height: 20px; }
+    .form-msg.success { color: #2d6a4f; }
+    .form-msg.error   { color: #e76f51; }
+
+    /* ── LOADING ── */
+    .loading { text-align: center; padding: 32px; color: #aaa; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <h1>Rafeeq <span>رفيق</span></h1>
+    <p>Admin Panel</p>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="showTab('dashboard')">
+      <span class="icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showTab('listings')">
+      <span class="icon">🏠</span> Pending Listings
+      <span id="pendingBadge" style="margin-left:auto; background:#e76f51; color:#fff;
+            border-radius:50%; width:20px; height:20px; font-size:11px; font-weight:700;
+            display:none; align-items:center; justify-content:center;"></span>
+    </div>
+    <div class="nav-item" onclick="showTab('reports')">
+      <span class="icon">🚩</span> Reports
+      <span id="reportsBadge" style="margin-left:auto; background:#e76f51; color:#fff;
+            border-radius:50%; width:20px; height:20px; font-size:11px; font-weight:700;
+            display:none; align-items:center; justify-content:center;"></span>
+    </div>
+    <div class="nav-item" onclick="showTab('users')">
+      <span class="icon">👥</span> Users
+    </div>
+    <div class="nav-item" onclick="showTab('admins')">
+      <span class="icon">🔑</span> Admins
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="admin-email" id="adminEmail">Loading...</div>
+    <button class="logout-btn" onclick="adminLogout()">Sign Out</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- DASHBOARD TAB -->
+  <div class="tab-content active" id="tab-dashboard">
+    <div class="page-title">📊 Dashboard</div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="loading">Loading stats...</div>
+    </div>
+  </div>
+
+  <!-- LISTINGS TAB -->
+  <div class="tab-content" id="tab-listings">
+    <div class="page-title">
+         <span onclick="showTab('dashboard')" style="cursor:pointer; color:#888; font-size:18px; margin-right:10px;">←</span>
+             🏠 Pending Listings
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Awaiting Review</h3>
+        <span>Approve or reject each listing before it goes live</span>
+      </div>
+      <div id="listingsTable"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- REPORTS TAB -->
+  <div class="tab-content" id="tab-reports">
+<div class="page-title">
+  <span onclick="showTab('dashboard')" style="cursor:pointer; color:#888; font-size:18px; margin-right:10px;">←</span>
+  🚩 User Reports
+</div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Pending Reports</h3>
+        <span>Reports submitted by users about listings</span>
+      </div>
+      <div id="reportsTable"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- USERS TAB -->
+  <div class="tab-content" id="tab-users">
+<div class="page-title">
+  <span onclick="showTab('dashboard')" style="cursor:pointer; color:#888; font-size:18px; margin-right:10px;">←</span>
+  👥 All Users
+</div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Registered Users</h3>
+        <span>All accounts on Rafeeq</span>
+      </div>
+      <div id="usersTable"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- ADMINS TAB -->
+  <div class="tab-content" id="tab-admins">
+<div class="page-title">
+  <span onclick="showTab('dashboard')" style="cursor:pointer; color:#888; font-size:18px; margin-right:10px;">←</span>
+  🔑 Admin Accounts
+</div>
+    <div class="add-admin-form">
+      <h3>Add New Admin</h3>
+      <div class="form-row">
+        <div>
+          <label>Email</label>
+          <input id="newAdminEmail" type="email" placeholder="newadmin@rafeeq.com"/>
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="newAdminPassword" type="password" placeholder="Min 6 characters"/>
+        </div>
+        <button class="btn-add" onclick="createAdmin()">Add Admin</button>
+      </div>
+      <div class="form-msg" id="adminFormMsg"></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Current Admins</h3>
+      </div>
+      <div id="adminsTable"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── TAB NAVIGATION ────────────────────────────────────────────
+  function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+
+    if (name === 'dashboard') loadStats();
+    if (name === 'listings')  loadPendingListings();
+    if (name === 'reports')   loadReports();
+    if (name === 'users')     loadUsers();
+    if (name === 'admins')    loadAdmins();
+  }
+
+  // ── LOGOUT ────────────────────────────────────────────────────
+  async function adminLogout() {
+    await fetch('/api/admin/logout', { method: 'POST' });
+    window.location.href = '/admin/login';
+  }
+
+  // ── LOAD STATS ────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const res  = await fetch('/api/admin/stats');
+      const data = await res.json();
+
+      document.getElementById('adminEmail').textContent = 'Signed in';
+
+      // Update sidebar badges
+      if (data.pending_listings > 0) {
+        const b = document.getElementById('pendingBadge');
+        b.textContent = data.pending_listings;
+        b.style.display = 'flex';
+      }
+      if (data.pending_reports > 0) {
+        const b = document.getElementById('reportsBadge');
+        b.textContent = data.pending_reports;
+        b.style.display = 'flex';
+      }
+
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card success" style="cursor:pointer" onclick="showTab('users')">
+          <div class="stat-icon">👥</div>
+          <div class="stat-value">${data.total_users}</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card success" style="cursor:pointer" onclick="showTab('listings')">
+          <div class="stat-icon">🏠</div>
+          <div class="stat-value">${data.approved_listings}</div>
+          <div class="stat-label">Live Listings</div>
+        </div>
+        <div class="stat-card ${data.pending_listings > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('listings')">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value">${data.pending_listings}</div>
+          <div class="stat-label">Pending Review</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💬</div>
+          <div class="stat-value">${data.total_messages}</div>
+          <div class="stat-label">Total Messages</div>
+        </div>
+        <div class="stat-card ${data.pending_reports > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('reports')">
+          <div class="stat-icon">🚩</div>
+          <div class="stat-value">${data.pending_reports}</div>
+          <div class="stat-label">Pending Reports</div>
+        </div>
+      `;
+    } catch (e) {
+      console.error('Load stats error:', e);
+    }
+  }
+
+  // ── LOAD PENDING LISTINGS ─────────────────────────────────────
+  async function loadPendingListings() {
+    try {
+      const res      = await fetch('/api/admin/listings/pending');
+      const listings = await res.json();
+      const el       = document.getElementById('listingsTable');
+
+      if (!listings.length) {
+        el.innerHTML = '<table><tr class="empty-row"><td>✅ No pending listings — all caught up!</td></tr></table>';
+        return;
+      }
+
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Owner</th>
+              <th>Area</th>
+              <th>Rent</th>
+              <th>Type</th>
+              <th>Gender</th>
+              <th>Submitted</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${listings.map(l => `
+              <tr id="listing-row-${l.id}">
+                <td><strong>${l.title}</strong></td>
+                <td>${l.owner_name}<br><span style="font-size:12px;color:#888;">${l.owner_email}</span></td>
+                <td>${l.area}</td>
+                <td>${l.rent} JD</td>
+                <td>${l.apartment_type}</td>
+                <td><span class="badge badge-${l.gender_preference}">${l.gender_preference}</span></td>
+                <td style="font-size:12px;color:#888;">${l.created_at ? l.created_at.substring(0,10) : '—'}</td>
+                <td>
+                  <a href="/listing/${l.id}" target="_blank"
+                     style="display:inline-block; padding:6px 14px; background:#f0ede8; color:#1a1a2e;
+                            border-radius:6px; font-size:13px; font-weight:600; text-decoration:none;
+                            margin-right:6px;">👁 View</a>
+                  <button class="btn-approve" onclick="approveListing(${l.id})">✅ Approve</button>
+                  <button class="btn-reject" onclick="rejectListing(${l.id})">❌ Reject</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      console.error('Load listings error:', e);
+    }
+  }
+
+  async function approveListing(id) {
+    try {
+      const res = await fetch(`/api/admin/listings/${id}/approve`, { method: 'POST' });
+      if (res.ok) {
+        document.getElementById(`listing-row-${id}`)?.remove();
+        loadStats();
+      }
+    } catch (e) {}
+  }
+
+  async function rejectListing(id) {
+    try {
+      const res = await fetch(`/api/admin/listings/${id}/reject`, { method: 'POST' });
+      if (res.ok) {
+        document.getElementById(`listing-row-${id}`)?.remove();
+        loadStats();
+      }
+    } catch (e) {}
+  }
+
+  // ── LOAD REPORTS ──────────────────────────────────────────────
+  async function loadReports() {
+    try {
+      const res     = await fetch('/api/admin/reports');
+      const reports = await res.json();
+      const el      = document.getElementById('reportsTable');
+
+      if (!reports.length) {
+        el.innerHTML = '<table><tr class="empty-row"><td>✅ No pending reports</td></tr></table>';
+        return;
+      }
+
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Listing</th>
+              <th>Reported By</th>
+              <th>Reason</th>
+              <th>Description</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reports.map(r => `
+              <tr id="report-row-${r.id}">
+                <td>${r.listing_title}</td>
+                <td>${r.reporter_name}</td>
+                <td><span class="badge badge-pending">${r.reason}</span></td>
+                <td style="max-width:200px;">${r.description || '—'}</td>
+                <td style="font-size:12px;color:#888;">${r.created_at ? r.created_at.substring(0,10) : '—'}</td>
+                <td>
+                  <button class="btn-resolve" onclick="resolveReport(${r.id})">✓ Resolve</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      console.error('Load reports error:', e);
+    }
+  }
+
+  async function resolveReport(id) {
+    try {
+      const res = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST' });
+      if (res.ok) {
+        document.getElementById(`report-row-${id}`)?.remove();
+        loadStats();
+      }
+    } catch (e) {}
+  }
+
+  // ── LOAD USERS ────────────────────────────────────────────────
+  async function loadUsers() {
+    try {
+      const res   = await fetch('/api/admin/users');
+      const users = await res.json();
+      const el    = document.getElementById('usersTable');
+
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Gender</th>
+              <th>Phone</th>
+              <th>Verified</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(u => `
+              <tr>
+                <td><strong>${u.name}</strong></td>
+                <td>${u.email}</td>
+                <td><span class="badge badge-${u.gender}">${u.gender}</span></td>
+                <td>${u.phone || '—'}</td>
+                <td>
+                  <span class="badge ${u.is_verified ? 'badge-verified' : 'badge-unverified'}">
+                    ${u.is_verified ? '✅ Verified' : '⏳ Pending'}
+                  </span>
+                </td>
+                <td style="font-size:12px;color:#888;">${u.created_at ? u.created_at.substring(0,10) : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      console.error('Load users error:', e);
+    }
+  }
+
+  // ── LOAD ADMINS ───────────────────────────────────────────────
+  async function loadAdmins() {
+    try {
+      const res    = await fetch('/api/admin/admins');
+      const admins = await res.json();
+      const el     = document.getElementById('adminsTable');
+
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>#</th><th>Email</th></tr>
+          </thead>
+          <tbody>
+            ${admins.map(a => `
+              <tr>
+                <td style="color:#888;">${a.id}</td>
+                <td>${a.email}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      console.error('Load admins error:', e);
+    }
+  }
+
+  // ── CREATE ADMIN ──────────────────────────────────────────────
+  async function createAdmin() {
+    const email    = document.getElementById('newAdminEmail').value.trim();
+    const password = document.getElementById('newAdminPassword').value;
+    const msgEl    = document.getElementById('adminFormMsg');
+
+    if (!email || !password) {
+      msgEl.textContent = 'Please fill in both fields.';
+      msgEl.className   = 'form-msg error';
+      return;
+    }
+
+    try {
+      const res  = await fetch('/api/admin/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        msgEl.textContent = `✅ Admin ${email} created successfully.`;
+        msgEl.className   = 'form-msg success';
+        document.getElementById('newAdminEmail').value    = '';
+        document.getElementById('newAdminPassword').value = '';
+        loadAdmins();
+      } else {
+        msgEl.textContent = data.error;
+        msgEl.className   = 'form-msg error';
+      }
+    } catch (e) {
+      msgEl.textContent = 'Something went wrong.';
+      msgEl.className   = 'form-msg error';
+    }
+  }
+
+  // ── INIT ──────────────────────────────────────────────────────
+  loadStats();
+</script>
+</body>
+</html>

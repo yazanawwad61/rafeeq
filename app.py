@@ -1,7 +1,7 @@
 import os
 import secrets
 import bleach
-from flask import Flask, request, jsonify, session, render_template
+from flask import Flask, request, jsonify, session, render_template, redirect
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -694,6 +694,186 @@ def get_reports():
         reports = [dict(row) for row in cursor.fetchall()]
         conn.close()
         return jsonify(reports), 200
+    except Exception as e:
+        return jsonify({'error': 'Something went wrong.'}), 500
+# ══════════════════════════════════════════════════════════════════
+# ADMIN AUTH ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+
+@app.route('/admin')
+@app.route('/admin/login')
+def admin_login_page():
+    if 'admin_id' in session:
+        return redirect('/admin/dashboard')
+    return render_template('admin_login.html')
+
+
+@app.route('/admin/dashboard')
+def admin_dashboard_page():
+    if 'admin_id' not in session:
+        return redirect('/admin/login')
+    return render_template('admin_dashboard.html')
+
+
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+
+        if not email or not password:
+            return jsonify({'error': 'Email and password are required'}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM admins WHERE email = ?', (email,))
+        admin = cursor.fetchone()
+        conn.close()
+
+        if not admin or not check_password_hash(admin['password'], password):
+            return jsonify({'error': 'Incorrect email or password'}), 401
+
+        session['admin_id'] = admin['id']
+        session['admin_email'] = admin['email']
+
+        return jsonify({'message': 'Logged in successfully'}), 200
+
+    except Exception as e:
+        print(f"Admin login error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/logout', methods=['POST'])
+def admin_logout():
+    session.pop('admin_id', None)
+    session.pop('admin_email', None)
+    return jsonify({'message': 'Logged out'}), 200
+
+
+@app.route('/api/admin/stats', methods=['GET'])
+def admin_stats():
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) AS count FROM users")
+        total_users = cursor.fetchone()['count']
+
+        cursor.execute(
+            "SELECT COUNT(*) AS count FROM listings WHERE status = 'approved'")
+        approved_listings = cursor.fetchone()['count']
+
+        cursor.execute(
+            "SELECT COUNT(*) AS count FROM listings WHERE status = 'pending'")
+        pending_listings = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) AS count FROM messages")
+        total_messages = cursor.fetchone()['count']
+
+        cursor.execute(
+            "SELECT COUNT(*) AS count FROM reports WHERE status = 'pending'")
+        pending_reports = cursor.fetchone()['count']
+
+        conn.close()
+        return jsonify({
+            'total_users':        total_users,
+            'approved_listings':  approved_listings,
+            'pending_listings':   pending_listings,
+            'total_messages':     total_messages,
+            'pending_reports':    pending_reports
+        }), 200
+
+    except Exception as e:
+        print(f"Admin stats error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/users', methods=['GET'])
+def admin_get_users():
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, name, email, gender, phone, is_verified, created_at
+            FROM users ORDER BY created_at DESC
+        ''')
+        users = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify(users), 200
+
+    except Exception as e:
+        print(f"Admin get users error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/admins', methods=['GET'])
+def admin_get_admins():
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, email FROM admins ORDER BY id ASC')
+        admins = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify(admins), 200
+
+    except Exception as e:
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/admins', methods=['POST'])
+def admin_create_admin():
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+
+        if not email or not password:
+            return jsonify({'error': 'Email and password are required'}), 400
+        if len(password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
+                       (email, generate_password_hash(password)))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': f'Admin {email} created successfully'}), 201
+
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'An admin with this email already exists'}), 409
+    except Exception as e:
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/reports/<int:report_id>/resolve', methods=['POST'])
+def resolve_report(report_id):
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE reports SET status = 'resolved' WHERE id = ?", (report_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Report resolved'}), 200
+
     except Exception as e:
         return jsonify({'error': 'Something went wrong.'}), 500
 
