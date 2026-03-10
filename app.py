@@ -340,68 +340,23 @@ def signup():
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
         hashed_password = generate_password_hash(password)
-        verify_token = secrets.token_urlsafe(32)
 
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(q('''
-            INSERT INTO users (name, email, password, gender, phone, is_verified, verify_token)
-            VALUES (?, ?, ?, ?, ?, 1, ?)
-        '''), (name, email, hashed_password, gender, phone, verify_token))
+            INSERT INTO users (name, email, password, gender, phone, is_verified)
+            VALUES (?, ?, ?, ?, ?, 1)
+        '''), (name, email, hashed_password, gender, phone))
         conn.commit()
         conn.close()
 
-        try:
-            verify_url = f"https://rafeeq-production.up.railway.app/api/verify-email/{verify_token}"
-            msg = MailMessage(
-                subject="Verify your Rafeeq account",
-                recipients=[email],
-                html=f"""
-        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
-            <h2 style="color:#2d6a4f;">Welcome to Rafeeq!</h2>
-            <p>Please verify your email to activate your account.</p>
-            <a href="{verify_url}"
-               style="background:#2d6a4f;color:white;padding:12px 24px;
-                      text-decoration:none;border-radius:8px;display:inline-block;">
-                Verify My Email
-            </a>
-        </div>"""
-            )
-            mail.send(msg)
-        except Exception as mail_error:
-            print(f"Email send failed: {mail_error}")
-
         return jsonify({'message': 'Account created successfully! You can now log in.'}), 201
+
     except Exception as e:
         print(f"Signup error: {e}")
         if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
             return jsonify({'error': 'An account with this email already exists'}), 409
         return jsonify({'error': 'Something went wrong. Please try again.'}), 500
-
-
-@app.route('/api/verify-email/<token>', methods=['GET'])
-def verify_email(token):
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            q('SELECT id FROM users WHERE verify_token = ?'), (token,))
-        row = cursor.fetchone()
-
-        if not row:
-            conn.close()
-            return jsonify({'error': 'Invalid or expired verification link'}), 400
-
-        user_id = row[0] if DATABASE_URL else row['id']
-        cursor.execute(
-            q('UPDATE users SET is_verified = 1, verify_token = NULL WHERE id = ?'), (user_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Email verified. You can now log in.'}), 200
-
-    except Exception as e:
-        print(f"Verify email error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
 
 
 @app.route('/api/login', methods=['POST'])
@@ -460,10 +415,10 @@ def me():
         'gender': session['user_gender']
     }), 200
 
-
 # ══════════════════════════════════════════════════════════════════
 # LISTING ROUTES
 # ══════════════════════════════════════════════════════════════════
+
 
 @app.route('/api/listings', methods=['POST'])
 def create_listing():
