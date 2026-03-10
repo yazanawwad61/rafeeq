@@ -346,7 +346,7 @@ def signup():
         cursor = conn.cursor()
         cursor.execute(q('''
             INSERT INTO users (name, email, password, gender, phone, is_verified, verify_token)
-            VALUES (?, ?, ?, ?, ?, 0, ?)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
         '''), (name, email, hashed_password, gender, phone, verify_token))
         conn.commit()
         conn.close()
@@ -371,8 +371,7 @@ def signup():
         except Exception as mail_error:
             print(f"Email send failed: {mail_error}")
 
-        return jsonify({'message': 'Account created. Please check your email to verify.'}), 201
-
+        return jsonify({'message': 'Account created successfully! You can now log in.'}), 201
     except Exception as e:
         print(f"Signup error: {e}")
         if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
