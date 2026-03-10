@@ -7,3 +7,4 @@ werkzeug
 pillow
 bleach
 gunicorn
+psycopg2-binary

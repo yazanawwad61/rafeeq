@@ -1,6 +1,7 @@
 import os
 import secrets
 import bleach
+import sqlite3
 from flask import Flask, request, jsonify, session, render_template, redirect
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_limiter import Limiter
@@ -9,7 +10,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message as MailMessage
 from PIL import Image
 from werkzeug.utils import secure_filename
-import sqlite3
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rafeeq-dev-secret-2026')
@@ -41,13 +41,47 @@ UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 MAX_IMAGE_WIDTH = 1200
 
-# ── DATABASE ───────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# DATABASE — PostgreSQL on Railway, SQLite locally
+# ══════════════════════════════════════════════════════════════════
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 
 def get_db():
-    conn = sqlite3.connect('roommate.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    if DATABASE_URL:
+        import psycopg2
+        import psycopg2.extras
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        return conn
+    else:
+        conn = sqlite3.connect('roommate.db')
+        conn.row_factory = sqlite3.Row
+        return conn
+
+
+def q(sql):
+    """Convert SQLite ? placeholders to PostgreSQL %s"""
+    if DATABASE_URL:
+        return sql.replace('?', '%s')
+    return sql
+
+
+def rows_to_dicts(cursor, rows):
+    """Convert rows to list of dicts for both SQLite and PostgreSQL"""
+    if DATABASE_URL:
+        cols = [desc[0] for desc in cursor.description]
+        return [dict(zip(cols, row)) for row in rows]
+    return [dict(row) for row in rows]
+
+
+def row_to_dict(cursor, row):
+    """Convert single row to dict for both SQLite and PostgreSQL"""
+    if DATABASE_URL:
+        cols = [desc[0] for desc in cursor.description]
+        return dict(zip(cols, row))
+    return dict(row)
 
 
 def allowed_file(filename):
@@ -61,97 +95,191 @@ def sanitize(text):
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.executescript('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            gender TEXT NOT NULL,
-            phone TEXT,
-            profile_pic TEXT,
-            is_verified INTEGER DEFAULT 0,
-            verify_token TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS listings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            apartment_type TEXT NOT NULL,
-            gender_preference TEXT NOT NULL,
-            rent REAL NOT NULL,
-            area TEXT NOT NULL,
-            latitude REAL,
-            longitude REAL,
-            rooms INTEGER,
-            status TEXT DEFAULT 'pending',
-            id_photo TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        CREATE TABLE IF NOT EXISTS listing_tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            listing_id INTEGER NOT NULL,
-            tag TEXT NOT NULL,
-            FOREIGN KEY (listing_id) REFERENCES listings(id)
-        );
-        CREATE TABLE IF NOT EXISTS listing_photos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            listing_id INTEGER NOT NULL,
-            photo_path TEXT NOT NULL,
-            FOREIGN KEY (listing_id) REFERENCES listings(id)
-        );
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id INTEGER NOT NULL,
-            receiver_id INTEGER NOT NULL,
-            listing_id INTEGER NOT NULL,
-            message TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (sender_id) REFERENCES users(id),
-            FOREIGN KEY (receiver_id) REFERENCES users(id),
-            FOREIGN KEY (listing_id) REFERENCES listings(id)
-        );
-        CREATE TABLE IF NOT EXISTS admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            reporter_id INTEGER NOT NULL,
-            listing_id INTEGER NOT NULL,
-            reason TEXT NOT NULL,
-            description TEXT,
-            status TEXT DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (reporter_id) REFERENCES users(id),
-            FOREIGN KEY (listing_id) REFERENCES listings(id)
-        );
-        CREATE TABLE IF NOT EXISTS ratings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            rater_id INTEGER NOT NULL,
-            rated_user_id INTEGER NOT NULL,
-            listing_id INTEGER NOT NULL,
-            accuracy INTEGER,
-            communication INTEGER,
-            reliability INTEGER,
-            comment TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (rater_id) REFERENCES users(id),
-            FOREIGN KEY (rated_user_id) REFERENCES users(id),
-            FOREIGN KEY (listing_id) REFERENCES listings(id)
-        );
-    ''')
+
+    if DATABASE_URL:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                gender TEXT NOT NULL,
+                phone TEXT,
+                profile_pic TEXT,
+                is_verified INTEGER DEFAULT 0,
+                verify_token TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS listings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                apartment_type TEXT NOT NULL,
+                gender_preference TEXT NOT NULL,
+                rent REAL NOT NULL,
+                area TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
+                rooms INTEGER,
+                status TEXT DEFAULT 'pending',
+                id_photo TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS listing_tags (
+                id SERIAL PRIMARY KEY,
+                listing_id INTEGER NOT NULL,
+                tag TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS listing_photos (
+                id SERIAL PRIMARY KEY,
+                listing_id INTEGER NOT NULL,
+                photo_path TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                sender_id INTEGER NOT NULL,
+                receiver_id INTEGER NOT NULL,
+                listing_id INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS admins (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS reports (
+                id SERIAL PRIMARY KEY,
+                reporter_id INTEGER NOT NULL,
+                listing_id INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                description TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ratings (
+                id SERIAL PRIMARY KEY,
+                rater_id INTEGER NOT NULL,
+                rated_user_id INTEGER NOT NULL,
+                listing_id INTEGER NOT NULL,
+                accuracy INTEGER,
+                communication INTEGER,
+                reliability INTEGER,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+    else:
+        cursor.executescript('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                gender TEXT NOT NULL,
+                phone TEXT,
+                profile_pic TEXT,
+                is_verified INTEGER DEFAULT 0,
+                verify_token TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS listings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                apartment_type TEXT NOT NULL,
+                gender_preference TEXT NOT NULL,
+                rent REAL NOT NULL,
+                area TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
+                rooms INTEGER,
+                status TEXT DEFAULT 'pending',
+                id_photo TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS listing_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                listing_id INTEGER NOT NULL,
+                tag TEXT NOT NULL,
+                FOREIGN KEY (listing_id) REFERENCES listings(id)
+            );
+            CREATE TABLE IF NOT EXISTS listing_photos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                listing_id INTEGER NOT NULL,
+                photo_path TEXT NOT NULL,
+                FOREIGN KEY (listing_id) REFERENCES listings(id)
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL,
+                receiver_id INTEGER NOT NULL,
+                listing_id INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sender_id) REFERENCES users(id),
+                FOREIGN KEY (receiver_id) REFERENCES users(id),
+                FOREIGN KEY (listing_id) REFERENCES listings(id)
+            );
+            CREATE TABLE IF NOT EXISTS admins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reporter_id INTEGER NOT NULL,
+                listing_id INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                description TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (reporter_id) REFERENCES users(id),
+                FOREIGN KEY (listing_id) REFERENCES listings(id)
+            );
+            CREATE TABLE IF NOT EXISTS ratings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rater_id INTEGER NOT NULL,
+                rated_user_id INTEGER NOT NULL,
+                listing_id INTEGER NOT NULL,
+                accuracy INTEGER,
+                communication INTEGER,
+                reliability INTEGER,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (rater_id) REFERENCES users(id),
+                FOREIGN KEY (rated_user_id) REFERENCES users(id),
+                FOREIGN KEY (listing_id) REFERENCES listings(id)
+            );
+        ''')
 
     # Create default admin if none exists
-    cursor.execute('SELECT COUNT(*) AS count FROM admins')
-    if cursor.fetchone()['count'] == 0:
-        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
-                       ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026')))
+    cursor.execute('SELECT COUNT(*) FROM admins')
+    count = cursor.fetchone()[0]
+    if count == 0:
+        cursor.execute(
+            q('INSERT INTO admins (email, password) VALUES (?, ?)'),
+            ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026'))
+        )
 
     conn.commit()
     conn.close()
@@ -159,10 +287,10 @@ def init_db():
 
 init_db()
 
+
 # ══════════════════════════════════════════════════════════════════
 # FRONTEND ROUTES
 # ══════════════════════════════════════════════════════════════════
-
 
 @app.route('/')
 def index():
@@ -210,10 +338,10 @@ def signup():
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(q('''
             INSERT INTO users (name, email, password, gender, phone, is_verified, verify_token)
             VALUES (?, ?, ?, ?, ?, 0, ?)
-        ''', (name, email, hashed_password, gender, phone, verify_token))
+        '''), (name, email, hashed_password, gender, phone, verify_token))
         conn.commit()
         conn.close()
 
@@ -239,10 +367,10 @@ def signup():
 
         return jsonify({'message': 'Account created. Please check your email to verify.'}), 201
 
-    except sqlite3.IntegrityError:
-        return jsonify({'error': 'An account with this email already exists'}), 409
     except Exception as e:
         print(f"Signup error: {e}")
+        if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
+            return jsonify({'error': 'An account with this email already exists'}), 409
         return jsonify({'error': 'Something went wrong. Please try again.'}), 500
 
 
@@ -251,15 +379,17 @@ def verify_email(token):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT id FROM users WHERE verify_token = ?', (token,))
-        user = cursor.fetchone()
+        cursor.execute(
+            q('SELECT id FROM users WHERE verify_token = ?'), (token,))
+        row = cursor.fetchone()
 
-        if not user:
+        if not row:
             conn.close()
             return jsonify({'error': 'Invalid or expired verification link'}), 400
 
+        user_id = row[0] if DATABASE_URL else row['id']
         cursor.execute(
-            'UPDATE users SET is_verified = 1, verify_token = NULL WHERE id = ?', (user['id'],))
+            q('UPDATE users SET is_verified = 1, verify_token = NULL WHERE id = ?'), (user_id,))
         conn.commit()
         conn.close()
         return jsonify({'message': 'Email verified. You can now log in.'}), 200
@@ -281,11 +411,16 @@ def login():
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
-        user = cursor.fetchone()
+        cursor.execute(q('SELECT * FROM users WHERE email = ?'), (email,))
+        row = cursor.fetchone()
         conn.close()
 
-        if not user or not check_password_hash(user['password'], password):
+        if not row:
+            return jsonify({'error': 'Incorrect email or password'}), 401
+
+        user = row_to_dict(cursor, row)
+
+        if not check_password_hash(user['password'], password):
             return jsonify({'error': 'Incorrect email or password'}), 401
         if not user['is_verified']:
             return jsonify({'error': 'Please verify your email before logging in'}), 403
@@ -306,25 +441,19 @@ def login():
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    try:
-        session.clear()
-        return jsonify({'message': 'Logged out successfully'}), 200
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
+    session.clear()
+    return jsonify({'message': 'Logged out successfully'}), 200
 
 
 @app.route('/api/me', methods=['GET'])
 def me():
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Not logged in'}), 401
-        return jsonify({
-            'id':     session['user_id'],
-            'name':   session['user_name'],
-            'gender': session['user_gender']
-        }), 200
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    return jsonify({
+        'id':     session['user_id'],
+        'name':   session['user_name'],
+        'gender': session['user_gender']
+    }), 200
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -358,17 +487,29 @@ def create_listing():
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO listings
-                (user_id, title, description, apartment_type, gender_preference,
-                 rent, area, latitude, longitude, rooms, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-        ''', (session['user_id'], title, description, apartment_type,
-              gender_preference, rent, area, latitude, longitude, rooms))
 
-        listing_id = cursor.lastrowid
+        if DATABASE_URL:
+            cursor.execute('''
+                INSERT INTO listings
+                    (user_id, title, description, apartment_type, gender_preference,
+                     rent, area, latitude, longitude, rooms, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+                RETURNING id
+            ''', (session['user_id'], title, description, apartment_type,
+                  gender_preference, rent, area, latitude, longitude, rooms))
+            listing_id = cursor.fetchone()[0]
+        else:
+            cursor.execute('''
+                INSERT INTO listings
+                    (user_id, title, description, apartment_type, gender_preference,
+                     rent, area, latitude, longitude, rooms, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            ''', (session['user_id'], title, description, apartment_type,
+                  gender_preference, rent, area, latitude, longitude, rooms))
+            listing_id = cursor.lastrowid
+
         for tag in tags:
-            cursor.execute('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)',
+            cursor.execute(q('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)'),
                            (listing_id, sanitize(tag)))
 
         conn.commit()
@@ -397,13 +538,13 @@ def get_listings():
         params = []
 
         if gender:
-            query += ' AND l.gender_preference = ?'
+            query += q(' AND l.gender_preference = ?')
             params.append(gender)
         if apt_type:
-            query += ' AND l.apartment_type = ?'
+            query += q(' AND l.apartment_type = ?')
             params.append(apt_type)
         if max_rent:
-            query += ' AND l.rent <= ?'
+            query += q(' AND l.rent <= ?')
             params.append(float(max_rent))
 
         if sort == 'price_asc':
@@ -416,18 +557,19 @@ def get_listings():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(query, params)
-        listings = cursor.fetchall()
+        listings = rows_to_dicts(cursor, cursor.fetchall())
 
         result = []
         for listing in listings:
-            d = dict(listing)
             cursor.execute(
-                'SELECT tag FROM listing_tags WHERE listing_id = ?', (listing['id'],))
-            d['tags'] = [r['tag'] for r in cursor.fetchall()]
+                q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing['id'],))
+            listing['tags'] = [r[0] if DATABASE_URL else r['tag']
+                               for r in cursor.fetchall()]
             cursor.execute(
-                'SELECT photo_path FROM listing_photos WHERE listing_id = ?', (listing['id'],))
-            d['photos'] = [r['photo_path'] for r in cursor.fetchall()]
-            result.append(d)
+                q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing['id'],))
+            listing['photos'] = [r[0] if DATABASE_URL else r['photo_path']
+                                 for r in cursor.fetchall()]
+            result.append(listing)
 
         conn.close()
         return jsonify(result), 200
@@ -442,26 +584,28 @@ def get_listing(listing_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(q('''
             SELECT l.*, u.name AS owner_name, u.phone AS owner_phone,
                    u.gender AS owner_gender, u.id AS owner_id
             FROM listings l
             JOIN users u ON l.user_id = u.id
             WHERE l.id = ?
-        ''', (listing_id,))
-        listing = cursor.fetchone()
+        '''), (listing_id,))
+        row = cursor.fetchone()
 
-        if not listing:
+        if not row:
             conn.close()
             return jsonify({'error': 'Listing not found'}), 404
 
-        d = dict(listing)
+        d = row_to_dict(cursor, row)
         cursor.execute(
-            'SELECT tag FROM listing_tags WHERE listing_id = ?', (listing_id,))
-        d['tags'] = [r['tag'] for r in cursor.fetchall()]
+            q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing_id,))
+        d['tags'] = [r[0] if DATABASE_URL else r['tag']
+                     for r in cursor.fetchall()]
         cursor.execute(
-            'SELECT photo_path FROM listing_photos WHERE listing_id = ?', (listing_id,))
-        d['photos'] = [r['photo_path'] for r in cursor.fetchall()]
+            q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing_id,))
+        d['photos'] = [r[0] if DATABASE_URL else r['photo_path']
+                       for r in cursor.fetchall()]
 
         conn.close()
         return jsonify(d), 200
@@ -469,61 +613,6 @@ def get_listing(listing_id):
     except Exception as e:
         print(f"Get listing error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/listings/<int:listing_id>/photos', methods=['POST'])
-def upload_photo(listing_id):
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            'SELECT user_id FROM listings WHERE id = ?', (listing_id,))
-        listing = cursor.fetchone()
-
-        if not listing:
-            conn.close()
-            return jsonify({'error': 'Listing not found'}), 404
-        if listing['user_id'] != session['user_id']:
-            conn.close()
-            return jsonify({'error': 'Not authorized'}), 403
-
-        if 'photo' not in request.files:
-            conn.close()
-            return jsonify({'error': 'No photo provided'}), 400
-
-        file = request.files['photo']
-        if not allowed_file(file.filename):
-            conn.close()
-            return jsonify({'error': 'Only JPG, PNG and WEBP allowed'}), 400
-
-        img = Image.open(file)
-        img.verify()
-        file.seek(0)
-        img = Image.open(file)
-
-        if img.width > MAX_IMAGE_WIDTH:
-            ratio = MAX_IMAGE_WIDTH / img.width
-            new_height = int(img.height * ratio)
-            img = img.resize((MAX_IMAGE_WIDTH, new_height), Image.LANCZOS)
-
-        filename = secure_filename(
-            f"listing_{listing_id}_{secrets.token_hex(8)}.jpg")
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        save_path = os.path.join(UPLOAD_FOLDER, filename)
-        img.convert('RGB').save(save_path, 'JPEG', quality=85)
-
-        cursor.execute('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)',
-                       (listing_id, save_path))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Photo uploaded', 'path': save_path}), 201
-
-    except Exception as e:
-        print(f"Photo upload error: {e}")
-        return jsonify({'error': 'Invalid image file'}), 400
 
 
 @app.route('/api/listings/<int:listing_id>/report', methods=['POST'])
@@ -541,10 +630,10 @@ def report_listing(listing_id):
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(q('''
             INSERT INTO reports (reporter_id, listing_id, reason, description)
             VALUES (?, ?, ?, ?)
-        ''', (session['user_id'], listing_id, reason, description))
+        '''), (session['user_id'], listing_id, reason, description))
         conn.commit()
         conn.close()
         return jsonify({'message': 'Report submitted.'}), 201
@@ -568,7 +657,7 @@ def get_conversations():
         conn = get_db()
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(q('''
             SELECT
                 m.listing_id,
                 l.title AS listing_title,
@@ -582,12 +671,14 @@ def get_conversations():
             JOIN users su ON m.sender_id = su.id
             JOIN users ru ON m.receiver_id = ru.id
             WHERE m.sender_id = ? OR m.receiver_id = ?
-            GROUP BY m.listing_id,
-                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+            GROUP BY m.listing_id, l.title,
+                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END,
+                CASE WHEN m.sender_id = ? THEN ru.name ELSE su.name END,
+                m.message, m.created_at
             ORDER BY m.created_at DESC
-        ''', (user_id, user_id, user_id, user_id, user_id, user_id))
+        '''), (user_id, user_id, user_id, user_id, user_id, user_id, user_id))
 
-        conversations = [dict(row) for row in cursor.fetchall()]
+        conversations = rows_to_dicts(cursor, cursor.fetchall())
         conn.close()
         return jsonify(conversations), 200
 
@@ -606,7 +697,7 @@ def get_messages(listing_id, other_user_id):
         conn = get_db()
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(q('''
             SELECT m.*, u.name AS sender_name
             FROM messages m
             JOIN users u ON m.sender_id = u.id
@@ -617,14 +708,14 @@ def get_messages(listing_id, other_user_id):
                 (m.sender_id = ? AND m.receiver_id = ?)
             )
             ORDER BY m.created_at ASC
-        ''', (listing_id, user_id, other_user_id, other_user_id, user_id))
+        '''), (listing_id, user_id, other_user_id, other_user_id, user_id))
 
-        messages = [dict(row) for row in cursor.fetchall()]
+        messages = rows_to_dicts(cursor, cursor.fetchall())
 
-        cursor.execute('''
+        cursor.execute(q('''
             UPDATE messages SET is_read = 1
             WHERE listing_id = ? AND receiver_id = ? AND sender_id = ?
-        ''', (listing_id, user_id, other_user_id))
+        '''), (listing_id, user_id, other_user_id))
         conn.commit()
         conn.close()
 
@@ -654,10 +745,10 @@ def send_message_http():
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(q('''
             INSERT INTO messages (sender_id, receiver_id, listing_id, message)
             VALUES (?, ?, ?, ?)
-        ''', (session['user_id'], receiver_id, listing_id, message))
+        '''), (session['user_id'], receiver_id, listing_id, message))
         conn.commit()
         conn.close()
 
@@ -700,22 +791,21 @@ def handle_message(data):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(q('''
             INSERT INTO messages (sender_id, receiver_id, listing_id, message)
             VALUES (?, ?, ?, ?)
-        ''', (user_id, receiver_id, listing_id, message))
-        message_id = cursor.lastrowid
+        '''), (user_id, receiver_id, listing_id, message))
 
-        cursor.execute('SELECT name FROM users WHERE id = ?', (user_id,))
-        sender = cursor.fetchone()
+        cursor.execute(q('SELECT name FROM users WHERE id = ?'), (user_id,))
+        row = cursor.fetchone()
+        sender_name = row[0] if DATABASE_URL else row['name']
         conn.commit()
         conn.close()
 
         room = f"chat_{listing_id}_{min(user_id, receiver_id)}_{max(user_id, receiver_id)}"
         emit('new_message', {
-            'id':          message_id,
             'sender_id':   user_id,
-            'sender_name': sender['name'],
+            'sender_name': sender_name,
             'receiver_id': receiver_id,
             'listing_id':  listing_id,
             'message':     message,
@@ -753,7 +843,7 @@ def get_pending_listings():
             WHERE l.status = 'pending'
             ORDER BY l.created_at ASC
         ''')
-        listings = [dict(row) for row in cursor.fetchall()]
+        listings = rows_to_dicts(cursor, cursor.fetchall())
         conn.close()
         return jsonify(listings), 200
     except Exception as e:
@@ -766,7 +856,7 @@ def approve_listing(listing_id):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE listings SET status = 'approved' WHERE id = ?", (listing_id,))
+            q("UPDATE listings SET status = 'approved' WHERE id = ?"), (listing_id,))
         conn.commit()
         conn.close()
         return jsonify({'message': f'Listing {listing_id} approved'}), 200
@@ -780,7 +870,7 @@ def reject_listing(listing_id):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE listings SET status = 'rejected' WHERE id = ?", (listing_id,))
+            q("UPDATE listings SET status = 'rejected' WHERE id = ?"), (listing_id,))
         conn.commit()
         conn.close()
         return jsonify({'message': f'Listing {listing_id} rejected'}), 200
@@ -801,7 +891,7 @@ def get_reports():
             WHERE r.status = 'pending'
             ORDER BY r.created_at ASC
         ''')
-        reports = [dict(row) for row in cursor.fetchall()]
+        reports = rows_to_dicts(cursor, cursor.fetchall())
         conn.close()
         return jsonify(reports), 200
     except Exception as e:
@@ -839,11 +929,16 @@ def admin_login():
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM admins WHERE email = ?', (email,))
-        admin = cursor.fetchone()
+        cursor.execute(q('SELECT * FROM admins WHERE email = ?'), (email,))
+        row = cursor.fetchone()
         conn.close()
 
-        if not admin or not check_password_hash(admin['password'], password):
+        if not row:
+            return jsonify({'error': 'Incorrect email or password'}), 401
+
+        admin = row_to_dict(cursor, row)
+
+        if not check_password_hash(admin['password'], password):
             return jsonify({'error': 'Incorrect email or password'}), 401
 
         session['admin_id'] = admin['id']
@@ -872,23 +967,22 @@ def admin_stats():
         conn = get_db()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT COUNT(*) AS count FROM users")
-        total_users = cursor.fetchone()['count']
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
 
         cursor.execute(
-            "SELECT COUNT(*) AS count FROM listings WHERE status = 'approved'")
-        approved_listings = cursor.fetchone()['count']
+            "SELECT COUNT(*) FROM listings WHERE status = 'approved'")
+        approved_listings = cursor.fetchone()[0]
 
         cursor.execute(
-            "SELECT COUNT(*) AS count FROM listings WHERE status = 'pending'")
-        pending_listings = cursor.fetchone()['count']
+            "SELECT COUNT(*) FROM listings WHERE status = 'pending'")
+        pending_listings = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) AS count FROM messages")
-        total_messages = cursor.fetchone()['count']
+        cursor.execute("SELECT COUNT(*) FROM messages")
+        total_messages = cursor.fetchone()[0]
 
-        cursor.execute(
-            "SELECT COUNT(*) AS count FROM reports WHERE status = 'pending'")
-        pending_reports = cursor.fetchone()['count']
+        cursor.execute("SELECT COUNT(*) FROM reports WHERE status = 'pending'")
+        pending_reports = cursor.fetchone()[0]
 
         conn.close()
         return jsonify({
@@ -916,7 +1010,7 @@ def admin_get_users():
             SELECT id, name, email, gender, phone, is_verified, created_at
             FROM users ORDER BY created_at DESC
         ''')
-        users = [dict(row) for row in cursor.fetchall()]
+        users = rows_to_dicts(cursor, cursor.fetchall())
         conn.close()
         return jsonify(users), 200
 
@@ -934,7 +1028,7 @@ def admin_get_admins():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('SELECT id, email FROM admins ORDER BY id ASC')
-        admins = [dict(row) for row in cursor.fetchall()]
+        admins = rows_to_dicts(cursor, cursor.fetchall())
         conn.close()
         return jsonify(admins), 200
 
@@ -959,15 +1053,15 @@ def admin_create_admin():
 
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
+        cursor.execute(q('INSERT INTO admins (email, password) VALUES (?, ?)'),
                        (email, generate_password_hash(password)))
         conn.commit()
         conn.close()
         return jsonify({'message': f'Admin {email} created successfully'}), 201
 
-    except sqlite3.IntegrityError:
-        return jsonify({'error': 'An admin with this email already exists'}), 409
     except Exception as e:
+        if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
+            return jsonify({'error': 'An admin with this email already exists'}), 409
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
@@ -980,7 +1074,7 @@ def resolve_report(report_id):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE reports SET status = 'resolved' WHERE id = ?", (report_id,))
+            q("UPDATE reports SET status = 'resolved' WHERE id = ?"), (report_id,))
         conn.commit()
         conn.close()
         return jsonify({'message': 'Report resolved'}), 200
