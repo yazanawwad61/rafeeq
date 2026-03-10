@@ -1,15 +1,17 @@
-import os
-import secrets
-import bleach
-import sqlite3
-from flask import Flask, request, jsonify, session, render_template, redirect
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message as MailMessage
-from PIL import Image
 from werkzeug.utils import secure_filename
+from PIL import Image
+from flask_mail import Mail, Message as MailMessage
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter.util import get_remote_address
+from flask_limiter import Limiter
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask import Flask, request, jsonify, session, render_template, redirect
+import sqlite3
+import bleach
+import secrets
+import os
+import eventlet
+eventlet.monkey_patch()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rafeeq-dev-secret-2026')
@@ -285,7 +287,11 @@ def init_db():
     conn.close()
 
 
-init_db()
+try:
+    init_db()
+    print("Database initialized successfully")
+except Exception as e:
+    print(f"Database init error: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════
