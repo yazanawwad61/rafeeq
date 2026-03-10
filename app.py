@@ -58,9 +58,111 @@ def sanitize(text):
     return bleach.clean(str(text).strip(), tags=[], strip=True)
 
 
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.executescript('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            gender TEXT NOT NULL,
+            phone TEXT,
+            profile_pic TEXT,
+            is_verified INTEGER DEFAULT 0,
+            verify_token TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS listings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            apartment_type TEXT NOT NULL,
+            gender_preference TEXT NOT NULL,
+            rent REAL NOT NULL,
+            area TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            rooms INTEGER,
+            status TEXT DEFAULT 'pending',
+            id_photo TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        CREATE TABLE IF NOT EXISTS listing_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            listing_id INTEGER NOT NULL,
+            tag TEXT NOT NULL,
+            FOREIGN KEY (listing_id) REFERENCES listings(id)
+        );
+        CREATE TABLE IF NOT EXISTS listing_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            listing_id INTEGER NOT NULL,
+            photo_path TEXT NOT NULL,
+            FOREIGN KEY (listing_id) REFERENCES listings(id)
+        );
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER NOT NULL,
+            receiver_id INTEGER NOT NULL,
+            listing_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sender_id) REFERENCES users(id),
+            FOREIGN KEY (receiver_id) REFERENCES users(id),
+            FOREIGN KEY (listing_id) REFERENCES listings(id)
+        );
+        CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reporter_id INTEGER NOT NULL,
+            listing_id INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            description TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (reporter_id) REFERENCES users(id),
+            FOREIGN KEY (listing_id) REFERENCES listings(id)
+        );
+        CREATE TABLE IF NOT EXISTS ratings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rater_id INTEGER NOT NULL,
+            rated_user_id INTEGER NOT NULL,
+            listing_id INTEGER NOT NULL,
+            accuracy INTEGER,
+            communication INTEGER,
+            reliability INTEGER,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (rater_id) REFERENCES users(id),
+            FOREIGN KEY (rated_user_id) REFERENCES users(id),
+            FOREIGN KEY (listing_id) REFERENCES listings(id)
+        );
+    ''')
+
+    # Create default admin if none exists
+    cursor.execute('SELECT COUNT(*) AS count FROM admins')
+    if cursor.fetchone()['count'] == 0:
+        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
+                       ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026')))
+
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
 # ══════════════════════════════════════════════════════════════════
 # FRONTEND ROUTES
 # ══════════════════════════════════════════════════════════════════
+
 
 @app.route('/')
 def index():
@@ -889,4 +991,4 @@ def resolve_report(report_id):
 
 # ══════════════════════════════════════════════════════════════════
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=True, host='0.0.0.0')
