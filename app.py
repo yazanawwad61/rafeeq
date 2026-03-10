@@ -13,6 +13,7 @@ import sqlite3
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rafeeq-dev-secret-2026')
+
 # ── SOCKETIO ───────────────────────────────────────────────────────
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 
@@ -56,8 +57,10 @@ def allowed_file(filename):
 def sanitize(text):
     return bleach.clean(str(text).strip(), tags=[], strip=True)
 
-# ── FRONTEND ROUTES ────────────────────────────────────────────────
 
+# ══════════════════════════════════════════════════════════════════
+# FRONTEND ROUTES
+# ══════════════════════════════════════════════════════════════════
 
 @app.route('/')
 def index():
@@ -78,10 +81,10 @@ def listing_page(listing_id):
 def messages_page():
     return render_template('messages.html')
 
+
 # ══════════════════════════════════════════════════════════════════
 # AUTH ROUTES
 # ══════════════════════════════════════════════════════════════════
-
 
 @app.route('/api/signup', methods=['POST'])
 def signup():
@@ -113,7 +116,7 @@ def signup():
         conn.close()
 
         try:
-            verify_url = f"http://127.0.0.1:5000/api/verify-email/{verify_token}"
+            verify_url = f"https://rafeeq-production.up.railway.app/api/verify-email/{verify_token}"
             msg = MailMessage(
                 subject="Verify your Rafeeq account",
                 recipients=[email],
@@ -701,10 +704,11 @@ def get_reports():
         return jsonify(reports), 200
     except Exception as e:
         return jsonify({'error': 'Something went wrong.'}), 500
+
+
 # ══════════════════════════════════════════════════════════════════
 # ADMIN AUTH ROUTES
 # ══════════════════════════════════════════════════════════════════
-
 
 @app.route('/admin')
 @app.route('/admin/login')
@@ -786,11 +790,11 @@ def admin_stats():
 
         conn.close()
         return jsonify({
-            'total_users':        total_users,
-            'approved_listings':  approved_listings,
-            'pending_listings':   pending_listings,
-            'total_messages':     total_messages,
-            'pending_reports':    pending_reports
+            'total_users':       total_users,
+            'approved_listings': approved_listings,
+            'pending_listings':  pending_listings,
+            'total_messages':    total_messages,
+            'pending_reports':   pending_reports
         }), 200
 
     except Exception as e:
@@ -884,23 +888,8 @@ def resolve_report(report_id):
 
 
 # ══════════════════════════════════════════════════════════════════
-if __name__ == '__main__':
-    socketio.run(app, debug=True)
-
-
-@app.route('/setup-admin')
-def setup_admin():
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
-                       ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026')))
-        conn.commit()
-        conn.close()
-        return 'Admin created!'
-    except Exception as e:
-        return f'Error: {e}'
-
+# TEMPORARY SETUP ROUTES — DELETE AFTER USE
+# ══════════════════════════════════════════════════════════════════
 
 @app.route('/setup-db')
 def setup_db():
@@ -997,3 +986,22 @@ def setup_db():
         return 'Database setup complete!'
     except Exception as e:
         return f'Error: {e}'
+
+
+@app.route('/setup-admin')
+def setup_admin():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
+                       ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026')))
+        conn.commit()
+        conn.close()
+        return 'Admin created!'
+    except Exception as e:
+        return f'Error: {e}'
+
+
+# ══════════════════════════════════════════════════════════════════
+if __name__ == '__main__':
+    socketio.run(app, debug=True)
