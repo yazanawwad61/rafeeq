@@ -357,15 +357,15 @@ def signup():
                 subject="Verify your Rafeeq account",
                 recipients=[email],
                 html=f"""
-                <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
-                    <h2 style="color:#2d6a4f;">Welcome to Rafeeq!</h2>
-                    <p>Please verify your email to activate your account.</p>
-                    <a href="{verify_url}"
-                       style="background:#2d6a4f;color:white;padding:12px 24px;
-                              text-decoration:none;border-radius:8px;display:inline-block;">
-                        Verify My Email
-                    </a>
-                </div>"""
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+            <h2 style="color:#2d6a4f;">Welcome to Rafeeq!</h2>
+            <p>Please verify your email to activate your account.</p>
+            <a href="{verify_url}"
+               style="background:#2d6a4f;color:white;padding:12px 24px;
+                      text-decoration:none;border-radius:8px;display:inline-block;">
+                Verify My Email
+            </a>
+        </div>"""
             )
             mail.send(msg)
         except Exception as mail_error:
