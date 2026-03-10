@@ -64,6 +64,11 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/sw.js')
+def sw():
+    return app.send_static_file('sw.js')
+
+
 @app.route('/listing/<int:listing_id>')
 def listing_page(listing_id):
     return render_template('listing.html', listing_id=listing_id)
@@ -881,3 +886,17 @@ def resolve_report(report_id):
 # ══════════════════════════════════════════════════════════════════
 if __name__ == '__main__':
     socketio.run(app, debug=True)
+
+
+@app.route('/setup-admin')
+def setup_admin():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO admins (email, password) VALUES (?, ?)',
+                       ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026')))
+        conn.commit()
+        conn.close()
+        return 'Admin created!'
+    except Exception as e:
+        return f'Error: {e}'
