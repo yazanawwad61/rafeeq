@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rafeeq — Find Your Roommate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/static/manifest.json"/>
+    <meta name="theme-color" content="#2d6a4f"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+    <meta name="apple-mobile-web-app-title" content="Rafeeq"/>
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
+
+    <!-- MAPBOX -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f8f7f4;
+            --surface: #ffffff;
+            --card: #ffffff;
+            --border: #e8e4dc;
+            --accent: #2d6a4f;
+            --accent2: #e76f51;
+            --text: #1a1a2e;
+            --muted: #6b7280;
+            --shadow: 0 2px 16px rgba(0,0,0,0.08);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Tajawal', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .logo { font-size: 1.6rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+        .logo span { color: var(--accent2); }
+        .nav-links { display: flex; gap: 12px; align-items: center; }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-outline { background: transparent; border: 2px solid var(--accent); color: var(--accent); }
+        .btn-outline:hover { background: var(--accent); color: white; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+
+        .hero {
+            background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%);
+            padding: 60px 32px;
+            text-align: center;
+            color: white;
+        }
+
+        .hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; margin-bottom: 12px; }
+        .hero h1 span { color: #b7e4c7; }
+        .hero p { font-size: 1.1rem; opacity: 0.85; max-width: 500px; margin: 0 auto; }
+
+        .filters-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filters-bar select, .filters-bar input {
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 0.9rem;
+            background: var(--bg);
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .filters-bar select:focus, .filters-bar input:focus { border-color: var(--accent); }
+        .filter-label { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+        .results-count { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
+        .results-count span { color: var(--accent); font-weight: 700; }
+
+        .main { display: grid; grid-template-columns: 1fr 420px; height: calc(100vh - 200px); }
+        #map { width: 100%; height: 100%; }
+
+        .listings-panel {
+            overflow-y: auto;
+            background: var(--bg);
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: var(--shadow);
+        }
+
+        .card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(45,106,79,0.15); }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .card-title { font-size: 1.05rem; font-weight: 700; line-height: 1.3; flex: 1; }
+        .card-rent { font-size: 1.1rem; font-weight: 800; color: var(--accent); white-space: nowrap; margin-left: 12px; }
+        .card-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+        .badge { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-area { background: #e8f4ea; color: #2d6a4f; }
+        .badge-type { background: #fef3e2; color: #e76f51; }
+        .badge-male { background: #dbeafe; color: #1d4ed8; }
+        .badge-female { background: #fce7f3; color: #be185d; }
+        .badge-any { background: #f3f4f6; color: #374151; }
+
+        .card-desc {
+            color: var(--muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        .card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tag { padding: 3px 10px; background: #f0faf4; border: 1px solid #b7e4c7; border-radius: 20px; font-size: 0.75rem; color: #2d6a4f; }
+
+        .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+        .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+
+        /* Mapbox popup */
+        .mapboxgl-popup-content {
+            font-family: 'Tajawal', sans-serif;
+            border-radius: 10px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 160px;
+        }
+
+        /* PIN PICKER */
+        #pinPickerMap {
+            width: 100%;
+            height: 260px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .pin-hint { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: 16px; }
+        .pin-confirmed { font-size: 13px; color: var(--accent); font-weight: 600; text-align: center; margin-bottom: 16px; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <div class="logo">رفيق <span>Rafeeq</span></div>
+    <div class="nav-links">
+        <button class="btn btn-outline" onclick="showLogin()" id="loginBtn">Login</button>
+        <button class="btn btn-primary" onclick="showSignup()" id="signupBtn">Sign Up</button>
+    </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+    <h1>Find Your Perfect <span>Home in Amman</span></h1>
+    <p>Browse verified shared and private apartments across Amman. Safe, structured, and trusted.</p>
+</div>
+
+<!-- FILTERS -->
+<div class="filters-bar">
+    <span class="filter-label">Filter:</span>
+    <select id="filter-gender" onchange="loadListings()">
+        <option value="">All Genders</option>
+        <option value="male">Males Only</option>
+        <option value="female">Females Only</option>
+    </select>
+    <select id="filter-type" onchange="loadListings()">
+        <option value="">All Types</option>
+        <option value="shared">Shared</option>
+        <option value="private">Private</option>
+    </select>
+    <select id="filter-sort" onchange="loadListings()">
+        <option value="">Latest First</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+    </select>
+    <input type="number" id="filter-max-rent" placeholder="Max rent (JD)" onchange="loadListings()">
+    <span class="results-count">Showing <span id="result-count">—</span> listings</span>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+    <div id="map"></div>
+    <div class="listings-panel" id="listings-panel">
+        <div class="empty"><div class="empty-icon">🏠</div><p>Loading listings...</p></div>
+    </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div id="authModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+     z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:#fff; border-radius:16px; padding:32px; width:100%; max-width:420px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <h2 id="authModalTitle" style="font-size:22px; font-weight:700;"></h2>
+      <button onclick="closeAuthModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#888;">✕</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="loginForm">
+      <input id="loginEmail" type="email" placeholder="Email address"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:12px; outline:none;"/>
+      <input id="loginPassword" type="password" placeholder="Password"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:16px; outline:none;"/>
+      <button onclick="submitLogin()"
+        style="width:100%; padding:13px; background:#2d6a4f; color:#fff; border:none;
+               border-radius:8px; font-family:'Tajawal',sans-serif; font-size:16px;
+               font-weight:700; cursor:pointer;">Log In</button>
+      <p style="text-align:center; margin-top:16px; font-size:14px; color:#888;">
+        Don't have an account?
+        <span onclick="showSignup()" style="color:#2d6a4f; font-weight:600; cursor:pointer;">Sign up</span>
+      </p>
+    </div>
+
+    <!-- SIGNUP FORM -->
+    <div id="signupForm" style="display:none;">
+      <input id="signupName" type="text" placeholder="Full name"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:12px; outline:none;"/>
+      <input id="signupEmail" type="email" placeholder="Email address"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:12px; outline:none;"/>
+      <input id="signupPassword" type="password" placeholder="Password (min 6 characters)"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:12px; outline:none;"/>
+      <select id="signupGender"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:12px; outline:none; background:#fff;">
+        <option value="">Select gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <input id="signupPhone" type="text" placeholder="Phone number (optional)"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:16px; outline:none;"/>
+      <button id="signupBtn" onclick="submitSignup()"
+        style="width:100%; padding:13px; background:#2d6a4f; color:#fff; border:none;
+               border-radius:8px; font-family:'Tajawal',sans-serif; font-size:16px;
+               font-weight:700; cursor:pointer;">Create Account</button>
+      <p style="text-align:center; margin-top:16px; font-size:14px; color:#888;">
+        Already have an account?
+        <span onclick="showLogin()" style="color:#2d6a4f; font-weight:600; cursor:pointer;">Log in</span>
+      </p>
+    </div>
+
+    <p id="authError" style="color:#e76f51; font-size:13px; text-align:center; margin-top:12px; min-height:20px;"></p>
+  </div>
+</div>
+
+<!-- POST LISTING MODAL -->
+<div id="postListingModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+     z-index:200; align-items:center; justify-content:center; padding:24px; overflow-y:auto;">
+  <div style="background:#fff; border-radius:16px; padding:32px; width:100%; max-width:520px; margin:auto;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <h2 style="font-size:22px; font-weight:700;">Post a Listing</h2>
+      <button onclick="closePostListing()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#888;">✕</button>
+    </div>
+
+    <form id="postListingForm">
+
+      <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">TITLE *</label>
+      <input id="plTitle" type="text" placeholder="e.g. Room in Sweifieh Apartment"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:16px; outline:none;"/>
+
+      <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">DESCRIPTION</label>
+      <textarea id="plDescription" placeholder="Describe your apartment..."
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:16px; outline:none;
+               resize:vertical; height:90px;"></textarea>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div>
+          <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">TYPE *</label>
+          <select id="plType"
+            style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+                   font-family:'Tajawal',sans-serif; font-size:15px; outline:none; background:#fff;">
+            <option value="">Select type</option>
+            <option value="shared">Shared</option>
+            <option value="private">Private</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">GENDER PREFERENCE *</label>
+          <select id="plGender"
+            style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+                   font-family:'Tajawal',sans-serif; font-size:15px; outline:none; background:#fff;">
+            <option value="">Select preference</option>
+            <option value="male">Males Only</option>
+            <option value="female">Females Only</option>
+            <option value="any">Any Gender</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div>
+          <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">MONTHLY RENT (JD) *</label>
+          <input id="plRent" type="number" placeholder="e.g. 150"
+            style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+                   font-family:'Tajawal',sans-serif; font-size:15px; outline:none;"/>
+        </div>
+        <div>
+          <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">NUMBER OF ROOMS</label>
+          <input id="plRooms" type="number" placeholder="e.g. 3"
+            style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+                   font-family:'Tajawal',sans-serif; font-size:15px; outline:none;"/>
+        </div>
+      </div>
+
+      <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">AREA *</label>
+      <select id="plArea"
+        style="width:100%; padding:12px 14px; border:1px solid #e8e4dc; border-radius:8px;
+               font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:16px; outline:none; background:#fff;">
+        <option value="">Select area</option>
+        <option value="Sweifieh">Sweifieh</option>
+        <option value="Abdoun">Abdoun</option>
+        <option value="Shmeisani">Shmeisani</option>
+        <option value="Jubeiha">Jubeiha</option>
+        <option value="Tla Al Ali">Tla Al Ali</option>
+        <option value="Khalda">Khalda</option>
+        <option value="Gardens">Gardens</option>
+        <option value="Medina Munawara St">Medina Munawara St</option>
+        <option value="University of Jordan Area">University of Jordan Area</option>
+        <option value="Mecca St">Mecca St</option>
+        <option value="Downtown">Downtown</option>
+        <option value="Jabal Amman">Jabal Amman</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <!-- PIN PICKER -->
+      <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:6px;">📍 PIN YOUR APARTMENT LOCATION</label>
+      <div id="pinPickerMap"></div>
+      <p class="pin-hint">Click anywhere on the map to drop a pin on your exact location</p>
+      <p class="pin-confirmed" id="pinConfirmed"></p>
+      <input type="hidden" id="plLat"/>
+      <input type="hidden" id="plLng"/>
+
+      <label style="font-size:13px; font-weight:600; color:#888; display:block; margin-bottom:10px;">LIFESTYLE TAGS</label>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;">
+        <label style="display:flex; align-items:center; gap:6px; background:#f5f5f0; padding:7px 12px; border-radius:20px; cursor:pointer; font-size:14px;">
+          <input type="checkbox" class="tag-checkbox" value="Doesn't Smoke"> Doesn't Smoke</label>
+        <label style="display:flex; align-items:center; gap:6px; background:#f5f5f0; padding:7px 12px; border-radius:20px; cursor:pointer; font-size:14px;">
+          <input type="checkbox" class="tag-checkbox" value="Prays"> Prays</label>
+        <label style="display:flex; align-items:center; gap:6px; background:#f5f5f0; padding:7px 12px; border-radius:20px; cursor:pointer; font-size:14px;">
+          <input type="checkbox" class="tag-checkbox" value="Quiet Lifestyle"> Quiet Lifestyle</label>
+        <label style="display:flex; align-items:center; gap:6px; background:#f5f5f0; padding:7px 12px; border-radius:20px; cursor:pointer; font-size:14px;">
+          <input type="checkbox" class="tag-checkbox" value="Students Only"> Students Only</label>
+        <label style="display:flex; align-items:center; gap:6px; background:#f5f5f0; padding:7px 12px; border-radius:20px; cursor:pointer; font-size:14px;">
+          <input type="checkbox" class="tag-checkbox" value="Doesn't Bring Guests"> Doesn't Bring Guests</label>
+        <label style="display:flex; align-items:center; gap:6px; background:#f5f5f0; padding:7px 12px; border-radius:20px; cursor:pointer; font-size:14px;">
+          <input type="checkbox" class="tag-checkbox" value="Pet Friendly"> Pet Friendly</label>
+      </div>
+
+      <button type="button" onclick="submitListing()"
+        style="width:100%; padding:14px; background:#2d6a4f; color:#fff; border:none;
+               border-radius:8px; font-family:'Tajawal',sans-serif; font-size:16px;
+               font-weight:700; cursor:pointer;">Submit Listing for Review</button>
+
+    </form>
+
+    <p id="postListingError" style="color:#e76f51; font-size:13px; text-align:center; margin-top:12px; min-height:20px;"></p>
+  </div>
+</div>
+
+<script>
+// ── MAPBOX ─────────────────────────────────────────────────────
+mapboxgl.accessToken = '{{ mapbox_token }}';
+let map;
+let markers = [];
+let allListings = [];
+let pinPickerMap = null;
+let pinPickerMarker = null;
+let selectedLat = null;
+let selectedLng = null;
+
+// Main map
+map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [35.9106, 31.9539],
+    zoom: 12
+});
+
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+map.on('load', () => loadListings());
+
+// ── LISTINGS ───────────────────────────────────────────────────
+async function loadListings() {
+    const gender  = document.getElementById('filter-gender').value;
+    const type    = document.getElementById('filter-type').value;
+    const sort    = document.getElementById('filter-sort').value;
+    const maxRent = document.getElementById('filter-max-rent').value;
+
+    const params = new URLSearchParams({ gender, type, sort });
+    if (maxRent) params.append('max_rent', maxRent);
+
+    const res = await fetch(`/api/listings?${params}`);
+    allListings = await res.json();
+
+    document.getElementById('result-count').textContent = allListings.length;
+    renderCards(allListings);
+    renderMarkers(allListings);
+}
+
+function renderCards(listings) {
+    const panel = document.getElementById('listings-panel');
+    if (listings.length === 0) {
+        panel.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>No listings found.</p></div>';
+        return;
+    }
+    panel.innerHTML = listings.map(l => `
+        <div class="card" onclick="window.location.href='/listing/${l.id}'">
+            <div class="card-header">
+                <div class="card-title">${l.title}</div>
+                <div class="card-rent">${l.rent} JD</div>
+            </div>
+            <div class="card-meta">
+                <span class="badge badge-area">📍 ${l.area}</span>
+                <span class="badge badge-type">${l.apartment_type === 'shared' ? '🏘 Shared' : '🏠 Private'}</span>
+                <span class="badge badge-${l.gender_preference}">${l.gender_preference === 'male' ? '👨 Males Only' : l.gender_preference === 'female' ? '👩 Females Only' : '👥 Any'}</span>
+            </div>
+            <div class="card-desc">${l.description || 'No description provided.'}</div>
+            <div class="card-tags">${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}</div>
+        </div>
+    `).join('');
+}
+
+function renderMarkers(listings) {
+    markers.forEach(m => m.remove());
+    markers = [];
+
+    listings.forEach(l => {
+        if (!l.latitude || !l.longitude) return;
+
+        const color = l.gender_preference === 'male'   ? '#1d4ed8'
+                    : l.gender_preference === 'female' ? '#be185d'
+                    : '#2d6a4f';
+
+        const el = document.createElement('div');
+        el.style.cssText = `
+            width:22px; height:22px;
+            background:${color};
+            border:3px solid white;
+            border-radius:50%;
+            cursor:pointer;
+            box-shadow:0 2px 8px rgba(0,0,0,0.3);
+            transition:transform 0.15s;
+        `;
+        el.addEventListener('mouseenter', () => el.style.transform = 'scale(1.3)');
+        el.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
+        el.addEventListener('click', () => window.location.href = `/listing/${l.id}`);
+
+        const popup = new mapboxgl.Popup({ offset: 20, closeButton: false })
+            .setHTML(`
+                <div style="font-family:'Tajawal',sans-serif;">
+                    <strong style="font-size:14px;">${l.title}</strong><br>
+                    <span style="color:#2d6a4f;font-weight:700;font-size:15px;">${l.rent} JD/month</span><br>
+                    <span style="color:#888;font-size:12px;">📍 ${l.area}</span>
+                </div>
+            `);
+
+        const marker = new mapboxgl.Marker(el)
+            .setLngLat([l.longitude, l.latitude])
+            .setPopup(popup)
+            .addTo(map);
+
+        markers.push(marker);
+    });
+}
+
+// ── AUTH ───────────────────────────────────────────────────────
+let currentUser = null;
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/me');
+        if (res.ok) { currentUser = await res.json(); updateNavbar(); }
+    } catch (e) {}
+}
+
+function updateNavbar() {
+    const navLinks = document.querySelector('.nav-links');
+    if (currentUser) {
+        navLinks.innerHTML = `
+            <button class="btn btn-outline" onclick="showPostListing()">+ Post Listing</button>
+            <a href="/messages" style="color:var(--accent);font-weight:600;text-decoration:none;">💬 Messages</a>
+            <span style="font-weight:600;color:var(--accent);">👋 ${currentUser.name}</span>
+            <button class="btn btn-outline" onclick="logout()">Logout</button>
+        `;
+    }
+}
+
+async function logout() {
+    await fetch('/api/logout', { method: 'POST' });
+    currentUser = null;
+    location.reload();
+}
+
+// ── MODALS ─────────────────────────────────────────────────────
+function showLogin() {
+    document.getElementById('authModal').style.display = 'flex';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('authModalTitle').textContent = 'Welcome back';
+}
+
+function showSignup() {
+    document.getElementById('authModal').style.display = 'flex';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('signupForm').style.display = 'block';
+    document.getElementById('authModalTitle').textContent = 'Create your account';
+}
+
+function closeAuthModal() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('authError').textContent = '';
+}
+
+// ── LOGIN ──────────────────────────────────────────────────────
+async function submitLogin() {
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) {
+        document.getElementById('authError').textContent = 'Please fill in all fields.';
+        return;
+    }
+    try {
+        const res  = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, password}) });
+        const data = await res.json();
+        if (res.ok) { currentUser = data.user; closeAuthModal(); updateNavbar(); }
+        else document.getElementById('authError').textContent = data.error;
+    } catch (e) { document.getElementById('authError').textContent = 'Something went wrong. Try again.'; }
+}
+
+// ── SIGNUP ─────────────────────────────────────────────────────
+async function submitSignup() {
+    const name     = document.getElementById('signupName').value.trim();
+    const email    = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const gender   = document.getElementById('signupGender').value;
+    const phone    = document.getElementById('signupPhone').value.trim();
+
+    if (!name || !email || !password || !gender) {
+        document.getElementById('authError').textContent = 'Please fill in all required fields.';
+        return;
+    }
+
+    const btn = document.getElementById('signupBtn');
+    btn.textContent = 'Creating account...';
+    btn.disabled = true;
+
+    try {
+        const res  = await fetch('/api/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, email, password, gender, phone}) });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('authError').style.color = '#2d6a4f';
+            document.getElementById('authError').textContent = '✅ Account created! You can now log in.';
+            btn.textContent = 'Create Account';
+            btn.disabled = false;
+            setTimeout(() => { closeAuthModal(); document.getElementById('authError').style.color = '#e76f51'; }, 3000);
+        } else {
+            document.getElementById('authError').textContent = data.error;
+            btn.textContent = 'Create Account';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        document.getElementById('authError').textContent = 'Something went wrong. Try again.';
+        btn.textContent = 'Create Account';
+        btn.disabled = false;
+    }
+}
+
+// ── POST LISTING ───────────────────────────────────────────────
+function showPostListing() {
+    if (!currentUser) { showLogin(); return; }
+    document.getElementById('postListingModal').style.display = 'flex';
+    setTimeout(() => initPinPickerMap(), 150);
+}
+
+function closePostListing() {
+    document.getElementById('postListingModal').style.display = 'none';
+    document.getElementById('postListingError').textContent = '';
+    document.getElementById('postListingForm').reset();
+    document.getElementById('pinConfirmed').textContent = '';
+    document.getElementById('plLat').value = '';
+    document.getElementById('plLng').value = '';
+    selectedLat = null; selectedLng = null;
+    if (pinPickerMarker) { pinPickerMarker.remove(); pinPickerMarker = null; }
+    if (pinPickerMap)    { pinPickerMap.remove();    pinPickerMap = null; }
+}
+
+function initPinPickerMap() {
+    if (pinPickerMap) return;
+    pinPickerMap = new mapboxgl.Map({
+        container: 'pinPickerMap',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [35.9106, 31.9539],
+        zoom: 13
+    });
+    pinPickerMap.on('click', (e) => {
+        selectedLat = e.lngLat.lat;
+        selectedLng = e.lngLat.lng;
+        document.getElementById('plLat').value = selectedLat;
+        document.getElementById('plLng').value = selectedLng;
+        document.getElementById('pinConfirmed').textContent = '✅ Location pinned!';
+        if (pinPickerMarker) {
+            pinPickerMarker.setLngLat(e.lngLat);
+        } else {
+            pinPickerMarker = new mapboxgl.Marker({ color: '#2d6a4f' })
+                .setLngLat(e.lngLat)
+                .addTo(pinPickerMap);
+        }
+    });
+}
+
+async function submitListing() {
+    const title             = document.getElementById('plTitle').value.trim();
+    const description       = document.getElementById('plDescription').value.trim();
+    const apartment_type    = document.getElementById('plType').value;
+    const gender_preference = document.getElementById('plGender').value;
+    const rent              = document.getElementById('plRent').value;
+    const area              = document.getElementById('plArea').value.trim();
+    const rooms             = document.getElementById('plRooms').value;
+    const latitude          = document.getElementById('plLat').value;
+    const longitude         = document.getElementById('plLng').value;
+    const tags              = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
+
+    if (!title || !apartment_type || !gender_preference || !rent || !area) {
+        document.getElementById('postListingError').textContent = 'Please fill in all required fields.';
+        return;
+    }
+
+    try {
+        const res  = await fetch('/api/listings', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ title, description, apartment_type, gender_preference,
+                rent: parseFloat(rent), area, rooms: parseInt(rooms),
+                latitude: latitude ? parseFloat(latitude) : null,
+                longitude: longitude ? parseFloat(longitude) : null, tags }) });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('postListingError').style.color = '#2d6a4f';
+            document.getElementById('postListingError').textContent = '✅ Listing submitted! It will go live after admin review.';
+            setTimeout(() => { closePostListing(); document.getElementById('postListingError').style.color = '#e76f51'; }, 3000);
+        } else {
+            document.getElementById('postListingError').textContent = data.error;
+        }
+    } catch (e) { document.getElementById('postListingError').textContent = 'Something went wrong. Please try again.'; }
+}
+
+checkAuth();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered'))
+        .catch(err => console.log('SW error:', err));
+    });
+  }
+</script>
+</body>
+</html>
