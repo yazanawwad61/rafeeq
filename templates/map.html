@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rafeeq — Map</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/static/manifest.json"/>
+    <meta name="theme-color" content="#2d6a4f"/>
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root { --bg:#f8f7f4; --surface:#fff; --border:#e8e4dc; --accent:#2d6a4f; --accent2:#e76f51; --text:#1a1a2e; --muted:#6b7280; --shadow:0 2px 16px rgba(0,0,0,0.08); }
+        body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; height:100vh; display:flex; flex-direction:column; }
+        .navbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 32px; height:68px; display:flex; align-items:center; justify-content:space-between; z-index:100; box-shadow:var(--shadow); flex-shrink:0; }
+        .logo { font-size:1.6rem; font-weight:800; color:var(--accent); letter-spacing:-0.5px; text-decoration:none; }
+        .logo span { color:var(--accent2); }
+        .nav-center { display:flex; gap:4px; background:var(--bg); border-radius:12px; padding:4px; }
+        .nav-tab { padding:8px 20px; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; border:none; background:transparent; color:var(--muted); transition:all 0.2s; text-decoration:none; display:flex; align-items:center; gap:6px; }
+        .nav-tab:hover { background:var(--surface); color:var(--text); }
+        .nav-tab.active { background:var(--surface); color:var(--accent); box-shadow:var(--shadow); }
+        .nav-links { display:flex; gap:10px; align-items:center; }
+        .btn { padding:9px 18px; border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; border:none; transition:all 0.2s; }
+        .btn-outline { background:transparent; border:2px solid var(--accent); color:var(--accent); }
+        .btn-outline:hover { background:var(--accent); color:white; }
+        .filters-bar { background:var(--surface); border-bottom:1px solid var(--border); padding:12px 24px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; flex-shrink:0; }
+        .filters-bar select, .filters-bar input { padding:8px 12px; border:1px solid var(--border); border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.85rem; background:var(--bg); color:var(--text); outline:none; cursor:pointer; }
+        .filters-bar select:focus, .filters-bar input:focus { border-color:var(--accent); }
+        .filter-label { font-size:0.85rem; color:var(--muted); font-weight:500; }
+        .results-count { margin-left:auto; color:var(--muted); font-size:0.875rem; }
+        .results-count span { color:var(--accent); font-weight:700; }
+        .main { display:grid; grid-template-columns:1fr 380px; flex:1; overflow:hidden; }
+        #map { width:100%; height:calc(100vh - 120px); }
+        .listings-panel { overflow-y:auto; background:var(--bg); border-left:1px solid var(--border); padding:16px; display:flex; flex-direction:column; gap:14px; }
+        .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; cursor:pointer; transition:all 0.2s; box-shadow:var(--shadow); text-decoration:none; color:var(--text); display:flex; gap:0; overflow:hidden; }
+        .card:hover { transform:translateY(-2px); border-color:var(--accent); box-shadow:0 6px 20px rgba(45,106,79,0.15); }
+        .card-thumb { width:100px; flex-shrink:0; background:#e8f4ea; display:flex; align-items:center; justify-content:center; font-size:1.8rem; overflow:hidden; }
+        .card-thumb img { width:100%; height:100%; object-fit:cover; }
+        .card-body { padding:12px 14px; flex:1; }
+        .card-title { font-size:0.9rem; font-weight:700; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .card-price { font-size:1rem; font-weight:800; color:var(--accent); margin-bottom:4px; }
+        .card-meta { font-size:0.75rem; color:var(--muted); }
+        .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:600; margin-right:4px; }
+        .badge-male { background:#dbeafe; color:#1d4ed8; }
+        .badge-female { background:#fce7f3; color:#be185d; }
+        .badge-any { background:#f3f4f6; color:#374151; }
+        .empty { text-align:center; padding:40px 20px; color:var(--muted); }
+        .mapboxgl-popup-content { font-family:'Tajawal',sans-serif; border-radius:10px; padding:12px 16px; min-width:150px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="/" class="logo">&#x631;&#x641;&#x64A;&#x642; <span>Rafeeq</span></a>
+    <div class="nav-center">
+        <a href="/" class="nav-tab">&#x1F3E0; Listings</a>
+        <a href="/map" class="nav-tab active">&#x1F5FA; Map</a>
+    </div>
+    <div class="nav-links" id="navLinks">
+        <button class="btn btn-outline" onclick="window.location.href='/'">Login</button>
+    </div>
+</nav>
+
+<div class="filters-bar">
+    <span class="filter-label">Filter:</span>
+    <select id="filter-gender" onchange="loadListings()">
+        <option value="">All Genders</option>
+        <option value="male">Males Only</option>
+        <option value="female">Females Only</option>
+    </select>
+    <select id="filter-type" onchange="loadListings()">
+        <option value="">All Types</option>
+        <option value="shared">Shared</option>
+        <option value="private">Private</option>
+    </select>
+    <input type="number" id="filter-max-rent" placeholder="Max rent (JD)" onchange="loadListings()" style="width:130px;">
+    <span class="results-count">Showing <span id="result-count">&#8212;</span> listings</span>
+</div>
+
+<div class="main">
+    <div id="map"></div>
+    <div class="listings-panel" id="listings-panel">
+        <div class="empty">Loading listings...</div>
+    </div>
+</div>
+
+<script>
+mapboxgl.accessToken = '{{ mapbox_token }}';
+
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [35.9106, 31.9539],
+    zoom: 12
+});
+
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+let markers = [];
+
+map.on('load', () => loadListings());
+
+async function loadListings() {
+    const gender  = document.getElementById('filter-gender').value;
+    const type    = document.getElementById('filter-type').value;
+    const maxRent = document.getElementById('filter-max-rent').value;
+    const params  = new URLSearchParams({ gender, type });
+    if (maxRent) params.append('max_rent', maxRent);
+    const res      = await fetch('/api/listings?' + params);
+    const listings = await res.json();
+    document.getElementById('result-count').textContent = listings.length;
+    renderPanel(listings);
+    renderMarkers(listings);
+}
+
+function renderPanel(listings) {
+    const panel = document.getElementById('listings-panel');
+    if (listings.length === 0) { panel.innerHTML = '<div class="empty">No listings found.</div>'; return; }
+    panel.innerHTML = listings.map(l => {
+        const photo = (l.photos && l.photos.length > 0) ? l.photos[0] : null;
+        const thumb = photo
+            ? '<img src="' + (photo.startsWith('http') ? photo : '/' + photo) + '" alt="' + l.title + '" style="width:100%;height:100%;object-fit:cover;"/>'
+            : '&#x1F3E0;';
+        const genderLabel = l.gender_preference === 'male' ? '&#x1F468; Males' : l.gender_preference === 'female' ? '&#x1F469; Females' : '&#x1F465; Any';
+        return '<a class="card" href="/listing/' + l.id + '">'
+            + '<div class="card-thumb">' + thumb + '</div>'
+            + '<div class="card-body">'
+            + '<div class="card-title">' + l.title + '</div>'
+            + '<div class="card-price">' + l.rent + ' JD/mo</div>'
+            + '<div class="card-meta">&#x1F4CD; ' + l.area + '</div>'
+            + '<div style="margin-top:5px;"><span class="badge badge-' + l.gender_preference + '">' + genderLabel + '</span></div>'
+            + '</div></a>';
+    }).join('');
+}
+
+function renderMarkers(listings) {
+    markers.forEach(m => m.remove());
+    markers = [];
+    listings.forEach(l => {
+        if (!l.latitude || !l.longitude) return;
+        const color = l.gender_preference === 'male' ? '#1d4ed8' : l.gender_preference === 'female' ? '#be185d' : '#2d6a4f';
+        const el = document.createElement('div');
+        el.style.cssText = 'width:22px;height:22px;background:' + color + ';border:3px solid white;border-radius:50%;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:transform 0.15s;';
+        el.addEventListener('mouseenter', () => el.style.transform = 'scale(1.3)');
+        el.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
+        el.addEventListener('click', () => window.location.href = '/listing/' + l.id);
+        const popup = new mapboxgl.Popup({offset:20,closeButton:false})
+            .setHTML('<div style="font-family:\'Tajawal\',sans-serif;"><strong style="font-size:14px;">' + l.title + '</strong><br><span style="color:#2d6a4f;font-weight:700;font-size:15px;">' + l.rent + ' JD/month</span><br><span style="color:#888;font-size:12px;">&#x1F4CD; ' + l.area + '</span></div>');
+        const marker = new mapboxgl.Marker(el).setLngLat([l.longitude, l.latitude]).setPopup(popup).addTo(map);
+        markers.push(marker);
+    });
+}
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+            const user = await res.json();
+            document.getElementById('navLinks').innerHTML =
+                '<a href="/" style="color:var(--accent);font-weight:600;font-size:0.9rem;">&#x1F44B; ' + user.name.split(' ')[0] + '</a>';
+        }
+    } catch(e) {}
+}
+
+checkAuth();
+</script>
+<script>
+  if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>
