@@ -300,7 +300,7 @@ except Exception as e:
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
 
 
 @app.route('/sw.js')
