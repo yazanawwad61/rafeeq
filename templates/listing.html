@@ -438,24 +438,28 @@
       `<span class="tag">${t}</span>`
     ).join('');
 
-    // Photo gallery
-    let galleryHTML = '';
-    if (l.photos && l.photos.length > 0) {
-      const thumbs = l.photos.map((p, i) =>
-        `<img src="/${p}" class="gallery-thumb ${i===0?'active':''}"
-              onclick="changePhoto(${i})" />`
-      ).join('');
-      galleryHTML = `
-        <div class="gallery">
-          <img id="mainPhoto" src="/${l.photos[0]}" class="gallery-main" />
-          ${l.photos.length > 1 ? `<div class="gallery-thumbs">${thumbs}</div>` : ''}
-        </div>`;
-    } else {
-      galleryHTML = `
-        <div class="gallery">
-          <div class="gallery-placeholder">🏠</div>
-        </div>`;
-    }
+// Photo gallery
+function photoUrl(p) {
+  return p.startsWith('http') ? p : '/' + p;
+}
+
+let galleryHTML = '';
+if (l.photos && l.photos.length > 0) {
+  const thumbs = l.photos.map((p, i) =>
+    `<img src="${photoUrl(p)}" class="gallery-thumb ${i===0?'active':''}"
+          onclick="changePhoto(${i})" />`
+  ).join('');
+  galleryHTML = `
+    <div class="gallery">
+      <img id="mainPhoto" src="${photoUrl(l.photos[0])}" class="gallery-main" />
+      ${l.photos.length > 1 ? `<div class="gallery-thumbs">${thumbs}</div>` : ''}
+    </div>`;
+} else {
+  galleryHTML = `
+    <div class="gallery">
+      <div class="gallery-placeholder">🏠</div>
+    </div>`;
+}
 
     const ownerInitial = (l.owner_name || '?')[0].toUpperCase();
 
@@ -519,16 +523,15 @@
     document.getElementById('content').style.display = 'block';
   }
 
-  // ── PHOTO GALLERY ─────────────────────────────────────────────
-  function changePhoto(index) {
-    if (!currentListing || !currentListing.photos) return;
-    currentPhotoIndex = index;
-    document.getElementById('mainPhoto').src = '/' + currentListing.photos[index];
-    document.querySelectorAll('.gallery-thumb').forEach((t, i) => {
-      t.classList.toggle('active', i === index);
-    });
-  }
-
+// ── PHOTO GALLERY ─────────────────────────────────────────────
+function changePhoto(index) {
+  if (!currentListing || !currentListing.photos) return;
+  currentPhotoIndex = index;
+  document.getElementById('mainPhoto').src = photoUrl(currentListing.photos[index]);
+  document.querySelectorAll('.gallery-thumb').forEach((t, i) => {
+    t.classList.toggle('active', i === index);
+  });
+}
   // ── CONTACT OWNER ─────────────────────────────────────────────
 function contactOwner() {
     if (!currentUser) {

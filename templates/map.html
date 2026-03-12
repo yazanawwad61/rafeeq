@@ -13,7 +13,8 @@
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --bg:#f8f7f4; --surface:#fff; --border:#e8e4dc; --accent:#2d6a4f; --accent2:#e76f51; --text:#1a1a2e; --muted:#6b7280; --shadow:0 2px 16px rgba(0,0,0,0.08); }
-        body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; height:100vh; display:flex; flex-direction:column; }
+        body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
         .navbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 32px; height:68px; display:flex; align-items:center; justify-content:space-between; z-index:100; box-shadow:var(--shadow); flex-shrink:0; }
         .logo { font-size:1.6rem; font-weight:800; color:var(--accent); letter-spacing:-0.5px; text-decoration:none; }
         .logo span { color:var(--accent2); }
@@ -25,29 +26,108 @@
         .btn { padding:9px 18px; border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; border:none; transition:all 0.2s; }
         .btn-outline { background:transparent; border:2px solid var(--accent); color:var(--accent); }
         .btn-outline:hover { background:var(--accent); color:white; }
-        .filters-bar { background:var(--surface); border-bottom:1px solid var(--border); padding:12px 24px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; flex-shrink:0; }
-        .filters-bar select, .filters-bar input { padding:8px 12px; border:1px solid var(--border); border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.85rem; background:var(--bg); color:var(--text); outline:none; cursor:pointer; }
+
+        /* FILTERS FLOATING */
+        .filters-bar {
+            position:absolute;
+            top:84px;
+            left:50%;
+            transform:translateX(-50%);
+            z-index:50;
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:14px;
+            padding:10px 16px;
+            display:flex;
+            gap:10px;
+            align-items:center;
+            box-shadow:0 4px 20px rgba(0,0,0,0.12);
+            flex-wrap:nowrap;
+        }
+        .filters-bar select, .filters-bar input {
+            padding:7px 12px; border:1px solid var(--border); border-radius:8px;
+            font-family:'Tajawal',sans-serif; font-size:0.85rem; background:var(--bg);
+            color:var(--text); outline:none; cursor:pointer;
+        }
         .filters-bar select:focus, .filters-bar input:focus { border-color:var(--accent); }
-        .filter-label { font-size:0.85rem; color:var(--muted); font-weight:500; }
-        .results-count { margin-left:auto; color:var(--muted); font-size:0.875rem; }
+        .filter-label { font-size:0.85rem; color:var(--muted); font-weight:500; white-space:nowrap; }
+        .results-count { font-size:0.8rem; color:var(--muted); white-space:nowrap; }
         .results-count span { color:var(--accent); font-weight:700; }
-        .main { display:grid; grid-template-columns:1fr 380px; flex:1; overflow:hidden; }
-        #map { width:100%; height:calc(100vh - 120px); }
-        .listings-panel { overflow-y:auto; background:var(--bg); border-left:1px solid var(--border); padding:16px; display:flex; flex-direction:column; gap:14px; }
-        .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; cursor:pointer; transition:all 0.2s; box-shadow:var(--shadow); text-decoration:none; color:var(--text); display:flex; gap:0; overflow:hidden; }
-        .card:hover { transform:translateY(-2px); border-color:var(--accent); box-shadow:0 6px 20px rgba(45,106,79,0.15); }
-        .card-thumb { width:100px; flex-shrink:0; background:#e8f4ea; display:flex; align-items:center; justify-content:center; font-size:1.8rem; overflow:hidden; }
-        .card-thumb img { width:100%; height:100%; object-fit:cover; }
-        .card-body { padding:12px 14px; flex:1; }
-        .card-title { font-size:0.9rem; font-weight:700; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .card-price { font-size:1rem; font-weight:800; color:var(--accent); margin-bottom:4px; }
-        .card-meta { font-size:0.75rem; color:var(--muted); }
-        .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:600; margin-right:4px; }
-        .badge-male { background:#dbeafe; color:#1d4ed8; }
-        .badge-female { background:#fce7f3; color:#be185d; }
-        .badge-any { background:#f3f4f6; color:#374151; }
-        .empty { text-align:center; padding:40px 20px; color:var(--muted); }
-        .mapboxgl-popup-content { font-family:'Tajawal',sans-serif; border-radius:10px; padding:12px 16px; min-width:150px; }
+
+        /* FULL SCREEN MAP */
+        #map { flex:1; width:100%; }
+
+        /* PRICE LABEL MARKER */
+        .price-marker {
+            background: var(--accent);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            transition: transform 0.15s, background 0.15s;
+            white-space: nowrap;
+            border: 2px solid white;
+        }
+        .price-marker:hover { transform: scale(1.1); background: #1b4332; }
+        .price-marker.male { background: #1d4ed8; }
+        .price-marker.female { background: #be185d; }
+        .price-marker.any { background: var(--accent); }
+
+        /* POPUP CARD */
+        .mapboxgl-popup { max-width: 280px !important; }
+        .mapboxgl-popup-content {
+            padding: 0 !important;
+            border-radius: 16px !important;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
+            font-family: 'Tajawal', sans-serif;
+        }
+        .mapboxgl-popup-close-button {
+            color: white;
+            font-size: 18px;
+            padding: 6px 10px;
+            z-index: 10;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .popup-img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .popup-img-placeholder {
+            width: 100%;
+            height: 150px;
+            background: linear-gradient(135deg, #e8f4ea, #d8f3dc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+        .popup-body { padding: 14px 16px; }
+        .popup-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #1a1a2e; line-height: 1.3; }
+        .popup-price { font-size: 18px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+        .popup-meta { font-size: 12px; color: #888; margin-bottom: 12px; }
+        .popup-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .popup-btn:hover { background: #1b4332; }
     </style>
 </head>
 <body>
@@ -63,6 +143,9 @@
     </div>
 </nav>
 
+<div id="map"></div>
+
+<!-- FLOATING FILTERS -->
 <div class="filters-bar">
     <span class="filter-label">Filter:</span>
     <select id="filter-gender" onchange="loadListings()">
@@ -75,15 +158,8 @@
         <option value="shared">Shared</option>
         <option value="private">Private</option>
     </select>
-    <input type="number" id="filter-max-rent" placeholder="Max rent (JD)" onchange="loadListings()" style="width:130px;">
-    <span class="results-count">Showing <span id="result-count">&#8212;</span> listings</span>
-</div>
-
-<div class="main">
-    <div id="map"></div>
-    <div class="listings-panel" id="listings-panel">
-        <div class="empty">Loading listings...</div>
-    </div>
+    <input type="number" id="filter-max-rent" placeholder="Max rent (JD)" onchange="loadListings()" style="width:120px;">
+    <span class="results-count"><span id="result-count">—</span> listings</span>
 </div>
 
 <script>
@@ -111,44 +187,55 @@ async function loadListings() {
     const res      = await fetch('/api/listings?' + params);
     const listings = await res.json();
     document.getElementById('result-count').textContent = listings.length;
-    renderPanel(listings);
     renderMarkers(listings);
 }
 
-function renderPanel(listings) {
-    const panel = document.getElementById('listings-panel');
-    if (listings.length === 0) { panel.innerHTML = '<div class="empty">No listings found.</div>'; return; }
-    panel.innerHTML = listings.map(l => {
-        const photo = (l.photos && l.photos.length > 0) ? l.photos[0] : null;
-        const thumb = photo
-            ? '<img src="' + (photo.startsWith('http') ? photo : '/' + photo) + '" alt="' + l.title + '" style="width:100%;height:100%;object-fit:cover;"/>'
-            : '&#x1F3E0;';
-        const genderLabel = l.gender_preference === 'male' ? '&#x1F468; Males' : l.gender_preference === 'female' ? '&#x1F469; Females' : '&#x1F465; Any';
-        return '<a class="card" href="/listing/' + l.id + '">'
-            + '<div class="card-thumb">' + thumb + '</div>'
-            + '<div class="card-body">'
-            + '<div class="card-title">' + l.title + '</div>'
-            + '<div class="card-price">' + l.rent + ' JD/mo</div>'
-            + '<div class="card-meta">&#x1F4CD; ' + l.area + '</div>'
-            + '<div style="margin-top:5px;"><span class="badge badge-' + l.gender_preference + '">' + genderLabel + '</span></div>'
-            + '</div></a>';
-    }).join('');
+function getPhotoUrl(photo) {
+    if (!photo) return null;
+    if (photo.startsWith('http')) return photo;
+    return '/' + photo;
 }
 
 function renderMarkers(listings) {
     markers.forEach(m => m.remove());
     markers = [];
+
     listings.forEach(l => {
         if (!l.latitude || !l.longitude) return;
-        const color = l.gender_preference === 'male' ? '#1d4ed8' : l.gender_preference === 'female' ? '#be185d' : '#2d6a4f';
+
+        const photo    = (l.photos && l.photos.length > 0) ? l.photos[0] : null;
+        const photoUrl = getPhotoUrl(photo);
+        const imgHTML  = photoUrl
+            ? '<img class="popup-img" src="' + photoUrl + '" alt="' + l.title + '"/>'
+            : '<div class="popup-img-placeholder">&#x1F3E0;</div>';
+
+        const typeLabel   = l.apartment_type === 'shared' ? '&#x1F3D8; Shared' : '&#x1F3E0; Private';
+        const genderLabel = l.gender_preference === 'male' ? '&#x1F468; Males Only'
+                          : l.gender_preference === 'female' ? '&#x1F469; Females Only'
+                          : '&#x1F465; Any Gender';
+
+        // Price label marker
         const el = document.createElement('div');
-        el.style.cssText = 'width:22px;height:22px;background:' + color + ';border:3px solid white;border-radius:50%;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:transform 0.15s;';
-        el.addEventListener('mouseenter', () => el.style.transform = 'scale(1.3)');
-        el.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
-        el.addEventListener('click', () => window.location.href = '/listing/' + l.id);
-        const popup = new mapboxgl.Popup({offset:20,closeButton:false})
-            .setHTML('<div style="font-family:\'Tajawal\',sans-serif;"><strong style="font-size:14px;">' + l.title + '</strong><br><span style="color:#2d6a4f;font-weight:700;font-size:15px;">' + l.rent + ' JD/month</span><br><span style="color:#888;font-size:12px;">&#x1F4CD; ' + l.area + '</span></div>');
-        const marker = new mapboxgl.Marker(el).setLngLat([l.longitude, l.latitude]).setPopup(popup).addTo(map);
+        el.className = 'price-marker ' + l.gender_preference;
+        el.textContent = l.rent + ' JD';
+
+        const popup = new mapboxgl.Popup({ offset: 20, closeButton: true, maxWidth: '280px' })
+            .setHTML(
+                '<div>'
+                + imgHTML
+                + '<div class="popup-body">'
+                + '<div class="popup-title">' + l.title + '</div>'
+                + '<div class="popup-price">' + l.rent + ' JD<span style="font-size:13px;font-weight:500;color:#888;">/month</span></div>'
+                + '<div class="popup-meta">&#x1F4CD; ' + l.area + ' &nbsp;&middot;&nbsp; ' + typeLabel + '<br>' + genderLabel + '</div>'
+                + '<a class="popup-btn" href="/listing/' + l.id + '">View Listing</a>'
+                + '</div></div>'
+            );
+
+        const marker = new mapboxgl.Marker(el)
+            .setLngLat([l.longitude, l.latitude])
+            .setPopup(popup)
+            .addTo(map);
+
         markers.push(marker);
     });
 }
@@ -159,7 +246,7 @@ async function checkAuth() {
         if (res.ok) {
             const user = await res.json();
             document.getElementById('navLinks').innerHTML =
-                '<a href="/" style="color:var(--accent);font-weight:600;font-size:0.9rem;">&#x1F44B; ' + user.name.split(' ')[0] + '</a>';
+                '<a href="/" style="color:var(--accent);font-weight:600;font-size:0.9rem;text-decoration:none;">&#x1F44B; ' + user.name.split(' ')[0] + '</a>';
         }
     } catch(e) {}
 }
