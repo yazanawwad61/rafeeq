@@ -45,6 +45,13 @@
         .btn-outline:hover { background: var(--accent); color: white; }
         .btn-primary { background: var(--accent); color: white; }
         .btn-primary:hover { opacity: 0.85; }
+        .messages-btn {
+            display: flex; align-items: center; gap: 6px;
+            color: var(--accent); font-weight: 600; text-decoration: none;
+            font-size: 0.9rem; padding: 9px 14px; border-radius: 10px;
+            border: 2px solid transparent; transition: all 0.2s;
+        }
+        .messages-btn:hover { background: #f0faf4; border-color: var(--accent); }
         .hero {
             background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #40916c 100%);
             padding: 64px 32px; text-align: center; color: white;
@@ -66,42 +73,45 @@
         .filter-label { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
         .results-count { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
         .results-count span { color: var(--accent); font-weight: 700; }
-        .grid-container { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+        .grid-container { max-width: 1400px; margin: 0 auto; padding: 32px 24px 64px; }
+
+        /* ── 4-COLUMN GRID ── */
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        @media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 780px)  { .grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px)  { .grid { grid-template-columns: 1fr; } }
         @media (max-width: 640px) {
-            .grid { grid-template-columns: 1fr; }
             .navbar { padding: 0 16px; }
             .nav-center { display: none; }
             .filters-bar { padding: 12px 16px; }
             .grid-container { padding: 20px 16px 48px; }
         }
+
         .card {
-            background: var(--surface); border-radius: 18px; overflow: hidden;
+            background: var(--surface); border-radius: 16px; overflow: hidden;
             cursor: pointer; transition: all 0.25s; box-shadow: var(--shadow);
             border: 1px solid var(--border); text-decoration: none;
             display: block; color: var(--text);
         }
         .card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.12); border-color: var(--accent); }
-        .card-img-wrap { position: relative; width: 100%; padding-top: 62%; overflow: hidden; background: #e8e4dc; }
+        .card-img-wrap { position: relative; width: 100%; padding-top: 66%; overflow: hidden; background: #e8e4dc; }
         .card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
         .card:hover .card-img { transform: scale(1.04); }
-        .card-img-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 3rem; background: linear-gradient(135deg, #e8f4ea, #d8f3dc); }
-        .card-gender-badge { position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; backdrop-filter: blur(8px); }
+        .card-img-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; background: linear-gradient(135deg, #e8f4ea, #d8f3dc); }
+        .card-gender-badge { position: absolute; top: 10px; left: 10px; padding: 3px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; backdrop-filter: blur(8px); }
         .badge-male { background: rgba(219,234,254,0.92); color: #1d4ed8; }
         .badge-female { background: rgba(252,231,243,0.92); color: #be185d; }
         .badge-any { background: rgba(243,244,246,0.92); color: #374151; }
-        .card-type-badge { position: absolute; top: 12px; right: 12px; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; background: rgba(255,255,255,0.92); color: var(--accent); backdrop-filter: blur(8px); }
-        .card-body { padding: 16px 18px 18px; }
-        .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-        .card-title { font-size: 1rem; font-weight: 700; line-height: 1.3; flex: 1; padding-right: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .card-price { font-size: 1.15rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
-        .card-price span { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
-        .card-area { font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
-        .card-tags { display: flex; flex-wrap: wrap; gap: 5px; }
-        .tag { padding: 2px 8px; background: #f0faf4; border: 1px solid #b7e4c7; border-radius: 20px; font-size: 0.7rem; color: var(--accent); }
+        .card-type-badge { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; background: rgba(255,255,255,0.92); color: var(--accent); backdrop-filter: blur(8px); }
+        .card-body { padding: 14px 16px 16px; }
+        .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+        .card-title { font-size: 0.92rem; font-weight: 700; line-height: 1.3; flex: 1; padding-right: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .card-price { font-size: 1.05rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
+        .card-price span { font-size: 0.72rem; font-weight: 500; color: var(--muted); }
+        .card-area { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 4px; margin-bottom: 9px; }
+        .card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+        .tag { padding: 2px 7px; background: #f0faf4; border: 1px solid #b7e4c7; border-radius: 20px; font-size: 0.66rem; color: var(--accent); }
         .empty { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
-        .empty-icon { font-size: 3.5rem; margin-bottom: 16px; }
-        .empty h3 { font-size: 1.2rem; margin-bottom: 8px; color: var(--text); }
         .mapboxgl-popup-content { font-family: 'Tajawal', sans-serif; border-radius: 10px; padding: 12px 16px; }
     </style>
 </head>
@@ -293,7 +303,7 @@ function renderGrid(listings) {
             : '<div class="card-img-placeholder">&#x1F3E0;</div>';
         const genderLabel = l.gender_preference === 'male' ? '&#x1F468; Males Only' : l.gender_preference === 'female' ? '&#x1F469; Females Only' : '&#x1F465; Any Gender';
         const typeLabel   = l.apartment_type === 'shared' ? '&#x1F3D8; Shared' : '&#x1F3E0; Private';
-        const tags        = (l.tags || []).slice(0,3).map(t => '<span class="tag">' + t + '</span>').join('');
+        const tags        = (l.tags || []).slice(0,2).map(t => '<span class="tag">' + t + '</span>').join('');
         return '<a class="card" href="/listing/' + l.id + '">'
             + '<div class="card-img-wrap">' + imgHTML
             + '<span class="card-gender-badge badge-' + l.gender_preference + '">' + genderLabel + '</span>'
@@ -318,8 +328,9 @@ async function checkAuth() {
 function updateNavbar() {
     const nav = document.getElementById('navLinks');
     if (currentUser) {
-        nav.innerHTML = '<button class="btn btn-outline" onclick="showPostListing()">+ Post Listing</button>'
-            + '<a href="/messages" style="color:var(--accent);font-weight:600;text-decoration:none;padding:8px 4px;">&#x1F4AC;</a>'
+        nav.innerHTML =
+            '<button class="btn btn-outline" onclick="showPostListing()">+ Post Listing</button>'
+            + '<a href="/messages" class="messages-btn">&#x1F4AC; Messages</a>'
             + '<span style="font-weight:600;color:var(--accent);font-size:0.9rem;">&#x1F44B; ' + currentUser.name.split(' ')[0] + '</span>'
             + '<button class="btn btn-outline" onclick="logout()">Logout</button>';
     }
@@ -431,7 +442,12 @@ async function submitListing() {
     } catch(e) { document.getElementById('postListingError').textContent = 'Something went wrong.'; }
 }
 
-checkAuth();
+checkAuth().then(() => {
+    // Auto-open login/signup if redirected from listing page
+    const action = new URLSearchParams(window.location.search).get('action');
+    if (action === 'login')  showLogin();
+    if (action === 'signup') showSignup();
+});
 </script>
 <script>
   if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }

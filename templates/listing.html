@@ -6,357 +6,153 @@
   <title>Listing — Rafeeq</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link rel="manifest" href="/static/manifest.json"/>
-<meta name="theme-color" content="#2d6a4f"/>
-<meta name="mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-<meta name="apple-mobile-web-app-title" content="Rafeeq"/>
-<link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
+  <meta name="theme-color" content="#2d6a4f"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Rafeeq"/>
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Tajawal', sans-serif;
-      background: #f5f5f0;
-      color: #1a1a2e;
-    }
+    body { font-family: 'Tajawal', sans-serif; background: #f5f5f0; color: #1a1a2e; }
 
     /* ── NAVBAR ── */
     .navbar {
-      background: #fff;
-      padding: 0 32px;
-      height: 64px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid #e8e4dc;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      background: #fff; padding: 0 32px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #e8e4dc; position: sticky; top: 0; z-index: 100;
     }
-    .navbar-logo {
-      font-size: 22px;
-      font-weight: 700;
-      color: #2d6a4f;
-      text-decoration: none;
-    }
+    .navbar-logo { font-size: 22px; font-weight: 700; color: #2d6a4f; text-decoration: none; }
     .navbar-logo span { color: #e76f51; }
+    .navbar-right { display: flex; align-items: center; gap: 12px; }
     .back-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #2d6a4f;
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 15px;
-      padding: 8px 16px;
-      border-radius: 8px;
-      transition: background 0.2s;
+      display: flex; align-items: center; gap: 8px; color: #2d6a4f;
+      text-decoration: none; font-weight: 500; font-size: 15px;
+      padding: 8px 16px; border-radius: 8px; transition: background 0.2s;
     }
     .back-btn:hover { background: #f0faf4; }
+    .messages-nav-btn {
+      display: flex; align-items: center; gap: 6px; color: #2d6a4f;
+      font-weight: 600; text-decoration: none; font-size: 0.9rem;
+      padding: 8px 14px; border-radius: 10px; border: 2px solid #e8e4dc;
+      transition: all 0.2s;
+    }
+    .messages-nav-btn:hover { border-color: #2d6a4f; background: #f0faf4; }
 
     /* ── MAIN LAYOUT ── */
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 32px 24px 64px;
-    }
+    .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 64px; }
 
     /* ── LOADING / ERROR ── */
-    .loading {
-      text-align: center;
-      padding: 80px 0;
-      color: #888;
-      font-size: 16px;
-    }
+    .loading { text-align: center; padding: 80px 0; color: #888; font-size: 16px; }
     .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #e8e4dc;
-      border-top: 3px solid #2d6a4f;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
+      width: 40px; height: 40px; border: 3px solid #e8e4dc;
+      border-top: 3px solid #2d6a4f; border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 16px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .error-box {
-      text-align: center;
-      padding: 80px 0;
-      color: #888;
-    }
+    .error-box { text-align: center; padding: 80px 0; color: #888; }
     .error-box h2 { font-size: 22px; margin-bottom: 8px; color: #1a1a2e; }
 
     /* ── PHOTO GALLERY ── */
-    .gallery {
-      border-radius: 16px;
-      overflow: hidden;
-      margin-bottom: 28px;
-      background: #e8e4dc;
-    }
-    .gallery-main {
-      width: 100%;
-      height: 420px;
-      object-fit: cover;
-      display: block;
-      cursor: pointer;
-    }
-    .gallery-thumbs {
-      display: flex;
-      gap: 4px;
-      padding: 4px;
-      background: #fff;
-    }
-    .gallery-thumb {
-      width: 80px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 6px;
-      cursor: pointer;
-      opacity: 0.7;
-      transition: opacity 0.2s;
-      flex-shrink: 0;
-    }
+    .gallery { border-radius: 16px; overflow: hidden; margin-bottom: 28px; background: #e8e4dc; }
+    .gallery-main { width: 100%; height: 420px; object-fit: cover; display: block; cursor: pointer; }
+    .gallery-thumbs { display: flex; gap: 4px; padding: 4px; background: #fff; }
+    .gallery-thumb { width: 80px; height: 60px; object-fit: cover; border-radius: 6px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; flex-shrink: 0; }
     .gallery-thumb.active, .gallery-thumb:hover { opacity: 1; }
-    .gallery-placeholder {
-      width: 100%;
-      height: 320px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      color: #ccc;
-      background: #f0ede8;
-    }
+    .gallery-placeholder { width: 100%; height: 320px; display: flex; align-items: center; justify-content: center; font-size: 48px; color: #ccc; background: #f0ede8; }
 
-    /* ── HEADER SECTION ── */
-    .listing-header {
-      margin-bottom: 24px;
-    }
-    .listing-title {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a1a2e;
-      margin-bottom: 12px;
-      line-height: 1.3;
-    }
-    .badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .badge {
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
+    /* ── HEADER ── */
+    .listing-header { margin-bottom: 24px; }
+    .listing-title { font-size: 28px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; line-height: 1.3; }
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .badge { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
     .badge-area   { background: #e8f5e9; color: #2d6a4f; }
     .badge-type   { background: #fff3e0; color: #e65100; }
     .badge-male   { background: #e3f2fd; color: #1565c0; }
     .badge-female { background: #fce4ec; color: #880e4f; }
     .badge-any    { background: #f3e5f5; color: #6a1b9a; }
 
-    /* ── STATS GRID ── */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      margin-bottom: 28px;
-    }
-    @media (min-width: 600px) {
-      .stats-grid { grid-template-columns: repeat(4, 1fr); }
-    }
-    .stat-card {
-      background: #fff;
-      border: 1px solid #e8e4dc;
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .stat-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-    .stat-value {
-      font-size: 18px;
-      font-weight: 700;
-      color: #1a1a2e;
-    }
+    /* ── STATS ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 28px; }
+    @media (min-width: 600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+    .stat-card { background: #fff; border: 1px solid #e8e4dc; border-radius: 12px; padding: 16px; }
+    .stat-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat-value { font-size: 18px; font-weight: 700; color: #1a1a2e; }
     .stat-value.rent { color: #2d6a4f; font-size: 22px; }
 
-    /* ── DESCRIPTION ── */
-    .section {
-      background: #fff;
-      border: 1px solid #e8e4dc;
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 20px;
-    }
-    .section-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1a1a2e;
-      margin-bottom: 14px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #f0ede8;
-    }
-    .description-text {
-      font-size: 15px;
-      color: #444;
-      line-height: 1.8;
-    }
+    /* ── SECTIONS ── */
+    .section { background: #fff; border: 1px solid #e8e4dc; border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    .section-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #f0ede8; }
+    .description-text { font-size: 15px; color: #444; line-height: 1.8; }
 
     /* ── TAGS ── */
-    .tags-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .tag {
-      background: #f0faf4;
-      border: 1px solid #b7e4c7;
-      color: #2d6a4f;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
-    }
+    .tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { background: #f0faf4; border: 1px solid #b7e4c7; color: #2d6a4f; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }
 
-    /* ── OWNER CARD ── */
-    .owner-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .owner-avatar {
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      background: #2d6a4f;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 20px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
+    /* ── OWNER ── */
+    .owner-card { display: flex; align-items: center; gap: 16px; }
+    .owner-avatar { width: 52px; height: 52px; border-radius: 50%; background: #2d6a4f; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 700; flex-shrink: 0; }
     .owner-info { flex: 1; }
-    .owner-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1a1a2e;
-    }
-    .owner-label {
-      font-size: 13px;
-      color: #888;
-      margin-top: 2px;
-    }
+    .owner-name { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+    .owner-label { font-size: 13px; color: #888; margin-top: 2px; }
 
     /* ── CONTACT BUTTON ── */
     .contact-btn {
-      display: block;
-      width: 100%;
-      padding: 16px;
-      background: #2d6a4f;
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 700;
-      font-family: 'Tajawal', sans-serif;
-      cursor: pointer;
-      text-align: center;
-      margin-top: 20px;
-      transition: background 0.2s, transform 0.1s;
-      text-decoration: none;
+      display: block; width: 100%; padding: 16px; background: #2d6a4f; color: #fff;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
+      font-family: 'Tajawal', sans-serif; cursor: pointer; text-align: center;
+      margin-top: 20px; transition: background 0.2s, transform 0.1s; text-decoration: none;
     }
     .contact-btn:hover { background: #1b4332; }
     .contact-btn:active { transform: scale(0.99); }
 
-    /* ── REPORT LINK ── */
-    .report-link {
+    /* ── LOGIN PROMPT (shown when not logged in and presses contact) ── */
+    .login-prompt {
+      display: none; margin-top: 16px; padding: 16px 20px;
+      background: #f0faf4; border: 1px solid #b7e4c7; border-radius: 12px;
       text-align: center;
-      margin-top: 32px;
     }
-    .report-link button {
-      background: none;
-      border: none;
-      color: #ccc;
-      font-size: 13px;
-      font-family: 'Tajawal', sans-serif;
-      cursor: pointer;
-      text-decoration: underline;
-      transition: color 0.2s;
+    .login-prompt p { font-size: 14px; color: #444; margin-bottom: 12px; }
+    .login-prompt-btns { display: flex; gap: 10px; justify-content: center; }
+    .login-prompt-btns button {
+      padding: 9px 20px; border-radius: 8px; font-family: 'Tajawal', sans-serif;
+      font-size: 14px; font-weight: 600; cursor: pointer; border: none;
     }
+    .btn-login-now { background: #2d6a4f; color: #fff; }
+    .btn-login-now:hover { background: #1b4332; }
+    .btn-signup-now { background: transparent; border: 2px solid #2d6a4f !important; color: #2d6a4f; }
+    .btn-signup-now:hover { background: #f0faf4; }
+
+    /* ── REPORT ── */
+    .report-link { text-align: center; margin-top: 32px; }
+    .report-link button { background: none; border: none; color: #ccc; font-size: 13px; font-family: 'Tajawal', sans-serif; cursor: pointer; text-decoration: underline; transition: color 0.2s; }
     .report-link button:hover { color: #e76f51; }
 
-    /* ── REPORT MODAL ── */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
+    /* ── MODALS ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 24px; }
     .modal-overlay.open { display: flex; }
-    .modal {
-      background: #fff;
-      border-radius: 16px;
-      padding: 28px;
-      width: 100%;
-      max-width: 440px;
-    }
+    .modal { background: #fff; border-radius: 16px; padding: 28px; width: 100%; max-width: 440px; }
     .modal h3 { font-size: 18px; margin-bottom: 16px; }
-    .modal select, .modal textarea {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid #e8e4dc;
-      border-radius: 8px;
-      font-family: 'Tajawal', sans-serif;
-      font-size: 14px;
-      margin-bottom: 12px;
-      outline: none;
-    }
+    .modal select, .modal textarea { width: 100%; padding: 10px 14px; border: 1px solid #e8e4dc; border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 14px; margin-bottom: 12px; outline: none; }
     .modal select:focus, .modal textarea:focus { border-color: #2d6a4f; }
     .modal textarea { resize: vertical; height: 90px; }
-    .modal-btns {
-      display: flex;
-      gap: 10px;
-      margin-top: 4px;
-    }
-    .modal-btns button {
-      flex: 1;
-      padding: 11px;
-      border-radius: 8px;
-      font-family: 'Tajawal', sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-    }
+    .modal-btns { display: flex; gap: 10px; margin-top: 4px; }
+    .modal-btns button { flex: 1; padding: 11px; border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
     .btn-cancel { background: #f5f5f0; color: #888; }
-    .btn-submit { background: #e76f51; color: #fff; }
+    .btn-submit-report { background: #e76f51; color: #fff; }
     .btn-cancel:hover { background: #e8e4dc; }
-    .btn-submit:hover { background: #cf5a3e; }
+    .btn-submit-report:hover { background: #cf5a3e; }
   </style>
 </head>
 <body>
 
 <!-- NAVBAR -->
 <nav class="navbar">
-  <a href="/" class="back-btn">← Back to listings</a>
-  <a href="/" class="navbar-logo">Rafeeq <span>رفيق</span></a>
+  <a href="/" class="back-btn">&#x2190; Back to listings</a>
+  <a href="/" class="navbar-logo">Rafeeq <span>&#x631;&#x641;&#x64A;&#x642;</span></a>
+  <div class="navbar-right" id="navbarRight">
+    <!-- populated by checkAuth -->
+  </div>
 </nav>
 
 <!-- CONTENT -->
@@ -386,39 +182,71 @@
     <textarea id="reportDesc" placeholder="Describe the issue (optional)"></textarea>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeReport()">Cancel</button>
-      <button class="btn-submit" onclick="submitReport()">Submit Report</button>
+      <button class="btn-submit-report" onclick="submitReport()">Submit Report</button>
     </div>
   </div>
 </div>
 
+<!-- CHAT MODAL -->
+<div id="chatModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:480px;display:flex;flex-direction:column;height:560px;">
+    <div style="padding:20px 24px;border-bottom:1px solid #e8e4dc;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:700;font-size:16px;" id="chatTitle">Chat</div>
+        <div style="font-size:13px;color:#888;" id="chatSubtitle"></div>
+      </div>
+      <button onclick="closeChat()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">&#x2715;</button>
+    </div>
+    <div id="chatMessages" style="flex:1;overflow-y:auto;padding:20px;"></div>
+    <div style="padding:16px 20px;border-top:1px solid #e8e4dc;display:flex;gap:10px;">
+      <input id="chatInput" type="text" placeholder="Type a message..."
+        onkeydown="if(event.key==='Enter') sendChatMessage()"
+        style="flex:1;padding:10px 14px;border:1px solid #e8e4dc;border-radius:24px;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;"/>
+      <button onclick="sendChatMessage()" style="background:#2d6a4f;color:#fff;border:none;border-radius:50%;width:42px;height:42px;font-size:18px;cursor:pointer;flex-shrink:0;">&#x27A4;</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-  // Get listing ID from URL (/listing/1 → 1)
   const listingId = window.location.pathname.split('/').pop();
   let currentListing = null;
   let currentPhotoIndex = 0;
   let socket = null;
   let currentUser = null;
 
+  // ── AUTH ──────────────────────────────────────────────────────
   async function checkAuth() {
     try {
-        const res = await fetch('/api/me');
-        if (res.ok) {
-            currentUser = await res.json();
-        }
+      const res = await fetch('/api/me');
+      if (res.ok) {
+        currentUser = await res.json();
+        document.getElementById('navbarRight').innerHTML =
+          '<a href="/messages" class="messages-nav-btn">&#x1F4AC; Messages</a>'
+          + '<span style="font-weight:600;color:#2d6a4f;font-size:0.9rem;">&#x1F44B; ' + currentUser.name.split(' ')[0] + '</span>';
+      } else {
+        document.getElementById('navbarRight').innerHTML =
+          '<a href="/" style="color:#2d6a4f;font-weight:600;text-decoration:none;font-size:0.9rem;padding:8px 14px;border-radius:10px;border:2px solid #e8e4dc;">Login</a>';
+      }
     } catch (e) {}
   }
+
   // ── LOAD LISTING ──────────────────────────────────────────────
   async function loadListing() {
     try {
       const res = await fetch(`/api/listings/${listingId}`);
       if (!res.ok) throw new Error('Not found');
-      const listing = await res.json();
-      currentListing = listing;
-      renderListing(listing);
+      currentListing = await res.json();
+      renderListing(currentListing);
     } catch (e) {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('error').style.display = 'block';
     }
+  }
+
+  // ── PHOTO URL HELPER ──────────────────────────────────────────
+  function photoUrl(p) {
+    return p.startsWith('http') ? p : '/' + p;
   }
 
   // ── RENDER ────────────────────────────────────────────────────
@@ -433,33 +261,22 @@
 
     const typeBadge = `<span class="badge badge-type">🏠 ${l.apartment_type === 'shared' ? 'Shared' : 'Private'}</span>`;
     const areaBadge = `<span class="badge badge-area">📍 ${l.area}</span>`;
+    const tags = (l.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
 
-    const tags = (l.tags || []).map(t =>
-      `<span class="tag">${t}</span>`
-    ).join('');
-
-// Photo gallery
-function photoUrl(p) {
-  return p.startsWith('http') ? p : '/' + p;
-}
-
-let galleryHTML = '';
-if (l.photos && l.photos.length > 0) {
-  const thumbs = l.photos.map((p, i) =>
-    `<img src="${photoUrl(p)}" class="gallery-thumb ${i===0?'active':''}"
-          onclick="changePhoto(${i})" />`
-  ).join('');
-  galleryHTML = `
-    <div class="gallery">
-      <img id="mainPhoto" src="${photoUrl(l.photos[0])}" class="gallery-main" />
-      ${l.photos.length > 1 ? `<div class="gallery-thumbs">${thumbs}</div>` : ''}
-    </div>`;
-} else {
-  galleryHTML = `
-    <div class="gallery">
-      <div class="gallery-placeholder">🏠</div>
-    </div>`;
-}
+    // Photo gallery
+    let galleryHTML = '';
+    if (l.photos && l.photos.length > 0) {
+      const thumbs = l.photos.map((p, i) =>
+        `<img src="${photoUrl(p)}" class="gallery-thumb ${i===0?'active':''}" onclick="changePhoto(${i})" />`
+      ).join('');
+      galleryHTML = `
+        <div class="gallery">
+          <img id="mainPhoto" src="${photoUrl(l.photos[0])}" class="gallery-main" />
+          ${l.photos.length > 1 ? `<div class="gallery-thumbs">${thumbs}</div>` : ''}
+        </div>`;
+    } else {
+      galleryHTML = `<div class="gallery"><div class="gallery-placeholder">🏠</div></div>`;
+    }
 
     const ownerInitial = (l.owner_name || '?')[0].toUpperCase();
 
@@ -472,22 +289,10 @@ if (l.photos && l.photos.length > 0) {
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Monthly Rent</div>
-          <div class="stat-value rent">${l.rent} JD</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Rooms</div>
-          <div class="stat-value">${l.rooms || '—'} rooms</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Type</div>
-          <div class="stat-value">${l.apartment_type}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Area</div>
-          <div class="stat-value">${l.area}</div>
-        </div>
+        <div class="stat-card"><div class="stat-label">Monthly Rent</div><div class="stat-value rent">${l.rent} JD</div></div>
+        <div class="stat-card"><div class="stat-label">Rooms</div><div class="stat-value">${l.rooms || '—'} rooms</div></div>
+        <div class="stat-card"><div class="stat-label">Type</div><div class="stat-value">${l.apartment_type}</div></div>
+        <div class="stat-card"><div class="stat-label">Area</div><div class="stat-value">${l.area}</div></div>
       </div>
 
       ${l.description ? `
@@ -512,6 +317,13 @@ if (l.photos && l.photos.length > 0) {
           </div>
         </div>
         <button class="contact-btn" onclick="contactOwner()">💬 Contact Owner</button>
+        <div class="login-prompt" id="loginPrompt">
+          <p>You need to be logged in to contact the owner.</p>
+          <div class="login-prompt-btns">
+            <button class="btn-login-now" onclick="window.location.href='/?action=login'">Log In</button>
+            <button class="btn-signup-now" onclick="window.location.href='/?action=signup'">Sign Up</button>
+          </div>
+        </div>
       </div>
 
       <div class="report-link">
@@ -523,108 +335,91 @@ if (l.photos && l.photos.length > 0) {
     document.getElementById('content').style.display = 'block';
   }
 
-// ── PHOTO GALLERY ─────────────────────────────────────────────
-function changePhoto(index) {
-  if (!currentListing || !currentListing.photos) return;
-  currentPhotoIndex = index;
-  document.getElementById('mainPhoto').src = photoUrl(currentListing.photos[index]);
-  document.querySelectorAll('.gallery-thumb').forEach((t, i) => {
-    t.classList.toggle('active', i === index);
-  });
-}
+  // ── PHOTO GALLERY ─────────────────────────────────────────────
+  function changePhoto(index) {
+    if (!currentListing || !currentListing.photos) return;
+    currentPhotoIndex = index;
+    document.getElementById('mainPhoto').src = photoUrl(currentListing.photos[index]);
+    document.querySelectorAll('.gallery-thumb').forEach((t, i) => {
+      t.classList.toggle('active', i === index);
+    });
+  }
+
   // ── CONTACT OWNER ─────────────────────────────────────────────
-function contactOwner() {
+  function contactOwner() {
     if (!currentUser) {
-        window.location.href = '/';
-        return;
+      // Show inline login prompt instead of redirecting
+      const prompt = document.getElementById('loginPrompt');
+      prompt.style.display = prompt.style.display === 'block' ? 'none' : 'block';
+      return;
     }
     if (currentUser.id === currentListing.owner_id) {
-        alert('This is your own listing.');
-        return;
+      alert('This is your own listing.');
+      return;
     }
     openChat();
-}
+  }
 
-function openChat() {
+  function openChat() {
     document.getElementById('chatModal').style.display = 'flex';
     document.getElementById('chatTitle').textContent = currentListing.title;
     document.getElementById('chatSubtitle').textContent = `with ${currentListing.owner_name}`;
     loadChatHistory();
     joinChatRoom();
-}
+  }
 
-function closeChat() {
+  function closeChat() {
     document.getElementById('chatModal').style.display = 'none';
-    if (socket) {
-        socket.emit('leave_chat', {
-            listing_id: currentListing.id,
-            other_user_id: currentListing.owner_id
-        });
-    }
-}
+    if (socket) socket.emit('leave_chat', { listing_id: currentListing.id, other_user_id: currentListing.owner_id });
+  }
 
-async function loadChatHistory() {
+  async function loadChatHistory() {
     try {
-        const res = await fetch(`/api/messages/${currentListing.id}/${currentListing.owner_id}`);
-        if (!res.ok) return;
-        const messages = await res.json();
-        const box = document.getElementById('chatMessages');
-        box.innerHTML = '';
-        messages.forEach(m => appendMessage(m.sender_id, m.sender_name, m.message, m.created_at));
-        box.scrollTop = box.scrollHeight;
+      const res = await fetch(`/api/messages/${currentListing.id}/${currentListing.owner_id}`);
+      if (!res.ok) return;
+      const messages = await res.json();
+      const box = document.getElementById('chatMessages');
+      box.innerHTML = '';
+      messages.forEach(m => appendMessage(m.sender_id, m.sender_name, m.message, m.created_at));
+      box.scrollTop = box.scrollHeight;
     } catch (e) {}
-}
+  }
 
-function appendMessage(senderId, senderName, message, time) {
+  function appendMessage(senderId, senderName, message, time) {
     const box = document.getElementById('chatMessages');
     const isMe = currentUser && senderId === currentUser.id;
     const div = document.createElement('div');
-    div.style.cssText = `
-        display:flex; flex-direction:column;
-        align-items:${isMe ? 'flex-end' : 'flex-start'};
-        margin-bottom:12px;
-    `;
+    div.style.cssText = `display:flex;flex-direction:column;align-items:${isMe ? 'flex-end' : 'flex-start'};margin-bottom:12px;`;
     div.innerHTML = `
-        ${!isMe ? `<span style="font-size:12px;color:#888;margin-bottom:3px;">${senderName}</span>` : ''}
-        <div style="
-            max-width:70%; padding:10px 14px; border-radius:${isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};
-            background:${isMe ? '#2d6a4f' : '#f0ede8'}; color:${isMe ? '#fff' : '#1a1a2e'};
-            font-size:14px; line-height:1.5;
-        ">${message}</div>
-        <span style="font-size:11px;color:#bbb;margin-top:3px;">${time}</span>
+      ${!isMe ? `<span style="font-size:12px;color:#888;margin-bottom:3px;">${senderName}</span>` : ''}
+      <div style="max-width:70%;padding:10px 14px;border-radius:${isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};
+        background:${isMe ? '#2d6a4f' : '#f0ede8'};color:${isMe ? '#fff' : '#1a1a2e'};font-size:14px;line-height:1.5;">${message}</div>
+      <span style="font-size:11px;color:#bbb;margin-top:3px;">${time}</span>
     `;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
-}
+  }
 
-function joinChatRoom() {
+  function joinChatRoom() {
     if (!socket) initSocket();
-    socket.emit('join_chat', {
-        listing_id: currentListing.id,
-        other_user_id: currentListing.owner_id
-    });
-}
+    socket.emit('join_chat', { listing_id: currentListing.id, other_user_id: currentListing.owner_id });
+  }
 
-function initSocket() {
+  function initSocket() {
     socket = io();
     socket.on('new_message', (data) => {
-        appendMessage(data.sender_id, data.sender_name, data.message, data.created_at);
+      appendMessage(data.sender_id, data.sender_name, data.message, data.created_at);
     });
-}
+  }
 
-async function sendChatMessage() {
+  async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
     if (!message) return;
-
     input.value = '';
+    socket.emit('send_message', { receiver_id: currentListing.owner_id, listing_id: currentListing.id, message });
+  }
 
-    socket.emit('send_message', {
-        receiver_id: currentListing.owner_id,
-        listing_id: currentListing.id,
-        message: message
-    });
-}
   // ── REPORT ────────────────────────────────────────────────────
   function openReport()  { document.getElementById('reportModal').classList.add('open'); }
   function closeReport() { document.getElementById('reportModal').classList.remove('open'); }
@@ -632,74 +427,23 @@ async function sendChatMessage() {
   async function submitReport() {
     const reason = document.getElementById('reportReason').value;
     const desc   = document.getElementById('reportDesc').value;
-
     if (!reason) { alert('Please select a reason.'); return; }
-
     try {
       const res = await fetch(`/api/listings/${listingId}/report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason, description: desc })
       });
       const data = await res.json();
-      if (res.ok) {
-        closeReport();
-        alert('Report submitted. Thank you.');
-      } else {
-        alert(data.error || 'Failed to submit report.');
-      }
-    } catch (e) {
-      alert('Something went wrong. Please try again.');
-    }
+      if (res.ok) { closeReport(); alert('Report submitted. Thank you.'); }
+      else alert(data.error || 'Failed to submit report.');
+    } catch (e) { alert('Something went wrong. Please try again.'); }
   }
 
   // ── INIT ──────────────────────────────────────────────────────
-  checkAuth();
-  loadListing();
+  checkAuth().then(() => loadListing());
 </script>
-<!-- CHAT MODAL -->
-<div id="chatModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
-     z-index:200; align-items:center; justify-content:center; padding:24px;">
-  <div style="background:#fff; border-radius:16px; width:100%; max-width:480px;
-              display:flex; flex-direction:column; height:560px;">
-
-    <!-- Header -->
-    <div style="padding:20px 24px; border-bottom:1px solid #e8e4dc;
-                display:flex; justify-content:space-between; align-items:center;">
-      <div>
-        <div style="font-weight:700; font-size:16px;" id="chatTitle">Chat</div>
-        <div style="font-size:13px; color:#888;" id="chatSubtitle"></div>
-      </div>
-      <button onclick="closeChat()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">✕</button>
-    </div>
-
-    <!-- Messages -->
-    <div id="chatMessages" style="flex:1; overflow-y:auto; padding:20px;"></div>
-
-    <!-- Input -->
-    <div style="padding:16px 20px; border-top:1px solid #e8e4dc; display:flex; gap:10px;">
-      <input id="chatInput" type="text" placeholder="Type a message..."
-        onkeydown="if(event.key==='Enter') sendChatMessage()"
-        style="flex:1; padding:10px 14px; border:1px solid #e8e4dc; border-radius:24px;
-               font-family:'Tajawal',sans-serif; font-size:14px; outline:none;"/>
-      <button onclick="sendChatMessage()"
-        style="background:#2d6a4f; color:#fff; border:none; border-radius:50%;
-               width:42px; height:42px; font-size:18px; cursor:pointer; flex-shrink:0;">➤</button>
-    </div>
-
-  </div>
-</div>
-
-<!-- SOCKETIO -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('SW registered'))
-        .catch(err => console.log('SW error:', err));
-    });
-  }
+  if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }
 </script>
 </body>
 </html>
