@@ -528,16 +528,28 @@ def get_listings():
         cursor.execute(query, params)
         listings = rows_to_dicts(cursor, cursor.fetchall())
 
+        ids = [l['id'] for l in listings]
+        tags_map = {}
+        photos_map = {}
+        if ids:
+            placeholders = ','.join(
+                [q('?')[0] for _ in ids]) if not DATABASE_URL else ','.join(['%s']*len(ids))
+            cursor.execute(
+                f'SELECT listing_id, tag FROM listing_tags WHERE listing_id IN ({placeholders})', ids)
+            for r in cursor.fetchall():
+                lid, tag = (r[0], r[1]) if DATABASE_URL else (
+                    r['listing_id'], r['tag'])
+                tags_map.setdefault(lid, []).append(tag)
+            cursor.execute(
+                f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({placeholders})', ids)
+            for r in cursor.fetchall():
+                lid, photo = (r[0], r[1]) if DATABASE_URL else (
+                    r['listing_id'], r['photo_path'])
+                photos_map.setdefault(lid, []).append(photo)
         result = []
         for listing in listings:
-            cursor.execute(
-                q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing['id'],))
-            listing['tags'] = [r[0] if DATABASE_URL else r['tag']
-                               for r in cursor.fetchall()]
-            cursor.execute(
-                q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing['id'],))
-            listing['photos'] = [r[0] if DATABASE_URL else r['photo_path']
-                                 for r in cursor.fetchall()]
+            listing['tags'] = tags_map.get(listing['id'], [])
+            listing['photos'] = photos_map.get(listing['id'], [])
             result.append(listing)
 
         conn.close()
