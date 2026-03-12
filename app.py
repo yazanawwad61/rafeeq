@@ -303,6 +303,11 @@ def index():
     return render_template('index.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
 
 
+@app.route('/map')
+def map_page():
+    return render_template('map.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
+
+
 @app.route('/sw.js')
 def sw():
     return app.send_static_file('sw.js')
@@ -488,6 +493,7 @@ def get_listings():
         apt_type = request.args.get('type')
         max_rent = request.args.get('max_rent')
         sort = request.args.get('sort', 'latest')
+        area = request.args.get('area')
 
         query = '''
             SELECT l.*, u.name AS owner_name
@@ -506,6 +512,9 @@ def get_listings():
         if max_rent:
             query += q(' AND l.rent <= ?')
             params.append(float(max_rent))
+        if area:
+            query += q(' AND l.area = ?')
+            params.append(area)
 
         if sort == 'price_asc':
             query += ' ORDER BY l.rent ASC'
@@ -601,11 +610,10 @@ def report_listing(listing_id):
     except Exception as e:
         print(f"Report error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
-
-
 # ══════════════════════════════════════════════════════════════════
 # MESSAGING ROUTES
 # ══════════════════════════════════════════════════════════════════
+
 
 @app.route('/api/conversations', methods=['GET'])
 def get_conversations():
