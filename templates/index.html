@@ -265,6 +265,12 @@
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Doesn't Bring Guests"> Doesn't Bring Guests</label>
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Pet Friendly"> Pet Friendly</label>
       </div>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">🪪 National ID Photo *</label>
+      <div id="idUploadArea" style="border:2px dashed #e8e4dc;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-bottom:6px;transition:border-color 0.2s;" onclick="document.getElementById('plIdPhoto').click()">
+        <div id="idUploadLabel" style="color:#aaa;font-size:14px;">Click to upload your National ID photo</div>
+      </div>
+      <input type="file" id="plIdPhoto" accept="image/*" style="display:none;" onchange="handleIdUpload(this)"/>
+      <p style="font-size:11px;color:#aaa;margin-bottom:20px;">Required for verification. Your ID will only be seen by Rafeeq admins and never shared publicly.</p>
       <button type="button" onclick="submitListing()" style="width:100%;padding:14px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Submit Listing for Review</button>
     </form>
     <p id="postListingError" style="color:#e76f51;font-size:13px;text-align:center;margin-top:12px;min-height:20px;"></p>
@@ -399,6 +405,8 @@ function closePostListing() {
     document.getElementById('postListingForm').reset();
     document.getElementById('pinConfirmed').textContent = '';
     document.getElementById('plLat').value = ''; document.getElementById('plLng').value = '';
+    document.getElementById('idUploadArea').style.borderColor = '#e8e4dc';
+    document.getElementById('idUploadLabel').innerHTML = 'Click to upload your National ID photo';
     if (pinPickerMarker) { pinPickerMarker.remove(); pinPickerMarker = null; }
     if (pinPickerMap)    { pinPickerMap.remove();    pinPickerMap = null; }
 }
@@ -415,24 +423,52 @@ function initPinPickerMap() {
     });
 }
 
+function handleIdUpload(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        document.getElementById('idUploadArea').style.borderColor = '#2d6a4f';
+        document.getElementById('idUploadLabel').innerHTML =
+            '<span style="color:#2d6a4f;font-weight:600;">✅ ' + file.name + '</span>';
+    }
+}
+
 async function submitListing() {
-    const title = document.getElementById('plTitle').value.trim();
-    const description = document.getElementById('plDescription').value.trim();
-    const apartment_type = document.getElementById('plType').value;
+    const title             = document.getElementById('plTitle').value.trim();
+    const description       = document.getElementById('plDescription').value.trim();
+    const apartment_type    = document.getElementById('plType').value;
     const gender_preference = document.getElementById('plGender').value;
-    const rent = document.getElementById('plRent').value;
-    const area = document.getElementById('plArea').value.trim();
-    const rooms = document.getElementById('plRooms').value;
-    const latitude = document.getElementById('plLat').value;
-    const longitude = document.getElementById('plLng').value;
-    const tags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
+    const rent              = document.getElementById('plRent').value;
+    const area              = document.getElementById('plArea').value.trim();
+    const rooms             = document.getElementById('plRooms').value;
+    const latitude          = document.getElementById('plLat').value;
+    const longitude         = document.getElementById('plLng').value;
+    const tags              = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
+    const idPhoto           = document.getElementById('plIdPhoto').files[0];
+
     if (!title || !apartment_type || !gender_preference || !rent || !area) {
         document.getElementById('postListingError').textContent = 'Please fill in all required fields.'; return;
     }
+    if (!idPhoto) {
+        document.getElementById('postListingError').textContent = 'Please upload your National ID photo.';
+        document.getElementById('idUploadArea').style.borderColor = '#e76f51';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('title',              title);
+    formData.append('description',        description);
+    formData.append('apartment_type',     apartment_type);
+    formData.append('gender_preference',  gender_preference);
+    formData.append('rent',               rent);
+    formData.append('area',               area);
+    formData.append('rooms',              rooms);
+    formData.append('latitude',           latitude);
+    formData.append('longitude',          longitude);
+    formData.append('tags',               JSON.stringify(tags));
+    formData.append('id_photo',           idPhoto);
+
     try {
-        const res = await fetch('/api/listings', {method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({title,description,apartment_type,gender_preference,rent:parseFloat(rent),area,rooms:parseInt(rooms),
-                latitude:latitude?parseFloat(latitude):null,longitude:longitude?parseFloat(longitude):null,tags})});
+        const res  = await fetch('/api/listings', { method: 'POST', body: formData });
         const data = await res.json();
         if (res.ok) {
             document.getElementById('postListingError').style.color = '#2d6a4f';
