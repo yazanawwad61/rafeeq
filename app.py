@@ -877,6 +877,61 @@ def reject_listing(listing_id):
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
+@app.route('/api/admin/listings/approved', methods=['GET'])
+def get_approved_listings():
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+        query = '''
+            SELECT l.*, u.name AS owner_name, u.email AS owner_email
+            FROM listings l
+            JOIN users u ON l.user_id = u.id
+            WHERE l.status = 'approved'
+        '''
+        params = []
+        if date_from:
+            query += q(' AND l.created_at >= ?')
+            params.append(date_from)
+        if date_to:
+            query += q(' AND l.created_at <= ?')
+            params.append(date_to + ' 23:59:59')
+        query += ' ORDER BY l.created_at DESC'
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        listings = rows_to_dicts(cursor, cursor.fetchall())
+        conn.close()
+        return jsonify(listings), 200
+    except Exception as e:
+        print(f"Get approved listings error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/listings/<int:listing_id>/delete', methods=['POST'])
+def delete_listing(listing_id):
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('DELETE FROM listing_tags WHERE listing_id = ?'),   (listing_id,))
+        cursor.execute(
+            q('DELETE FROM listing_photos WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM messages WHERE listing_id = ?'),       (listing_id,))
+        cursor.execute(q('DELETE FROM listings WHERE id = ?'),
+                       (listing_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': f'Listing {listing_id} deleted'}), 200
+    except Exception as e:
+        print(f"Delete listing error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
 @app.route('/api/admin/reports', methods=['GET'])
 def get_reports():
     try:

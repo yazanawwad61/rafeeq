@@ -123,6 +123,9 @@
     <div class="nav-item active" onclick="showTab('dashboard', this)">
       <span class="icon">📊</span> Dashboard
     </div>
+    <div class="nav-item" onclick="showTab('live', this)">
+      <span class="icon">✅</span> Live Listings
+    </div>
     <div class="nav-item" onclick="showTab('listings', this)">
       <span class="icon">🏠</span> Pending Listings
       <span id="pendingBadge" style="margin-left:auto;background:#e76f51;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:700;display:none;align-items:center;justify-content:center;"></span>
@@ -151,6 +154,32 @@
   <div class="tab-content active" id="tab-dashboard">
     <div class="page-title">📊 Dashboard</div>
     <div class="stats-grid" id="statsGrid"><div class="loading">Loading stats...</div></div>
+  </div>
+
+  <!-- LIVE LISTINGS TAB -->
+  <div class="tab-content" id="tab-live">
+    <div class="page-title">✅ Live Listings</div>
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h3>All Approved Listings</h3>
+          <span>Currently live on the platform</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label style="font-size:12px;color:#888;font-weight:600;">From</label>
+            <input type="date" id="live-date-from" style="padding:6px 10px;border:1px solid #e8e4dc;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;outline:none;"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label style="font-size:12px;color:#888;font-weight:600;">To</label>
+            <input type="date" id="live-date-to" style="padding:6px 10px;border:1px solid #e8e4dc;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;outline:none;"/>
+          </div>
+          <button onclick="loadLiveListings()" style="padding:7px 16px;background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Filter</button>
+          <button onclick="clearLiveFilter()" style="padding:7px 16px;background:#f0ede8;color:#888;border:none;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Clear</button>
+        </div>
+      </div>
+      <div id="liveListingsTable"><div class="loading">Loading...</div></div>
+    </div>
   </div>
 
   <!-- LISTINGS TAB -->
@@ -240,6 +269,7 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(`tab-${name}`).classList.add('active');
     if (el) el.classList.add('active');
+    if (name === 'live')      loadLiveListings();
     if (name === 'dashboard') loadStats();
     if (name === 'listings')  loadPendingListings();
     if (name === 'reports')   loadReports();
@@ -271,7 +301,7 @@
         <div class="stat-card success" style="cursor:pointer" onclick="showTab('users', document.querySelectorAll('.nav-item')[3])">
           <div class="stat-icon">👥</div><div class="stat-value">${data.total_users}</div><div class="stat-label">Total Users</div>
         </div>
-        <div class="stat-card success" style="cursor:pointer" onclick="showTab('listings', document.querySelectorAll('.nav-item')[1])">
+        <div class="stat-card success" style="cursor:pointer" onclick="showTab('live', document.querySelectorAll('.nav-item')[1])">
           <div class="stat-icon">🏠</div><div class="stat-value">${data.approved_listings}</div><div class="stat-label">Live Listings</div>
         </div>
         <div class="stat-card ${data.pending_listings > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('listings', document.querySelectorAll('.nav-item')[1])">
@@ -285,6 +315,64 @@
         </div>
       `;
     } catch (e) { console.error(e); }
+  }
+
+  // ── LOAD LIVE LISTINGS ───────────────────────────────────────
+  async function loadLiveListings() {
+    const dateFrom = document.getElementById('live-date-from').value;
+    const dateTo   = document.getElementById('live-date-to').value;
+    const params   = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo)   params.append('date_to',   dateTo);
+    try {
+      const res      = await fetch('/api/admin/listings/approved?' + params);
+      const listings = await res.json();
+      const el       = document.getElementById('liveListingsTable');
+      if (!listings.length) {
+        el.innerHTML = '<table><tr class="empty-row"><td>No live listings found for this period.</td></tr></table>'; return;
+      }
+      el.innerHTML = `
+        <table>
+          <thead><tr><th>Title</th><th>Owner</th><th>Area</th><th>Rent</th><th>Type</th><th>Gender</th><th>Posted</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${listings.map(l => `
+              <tr id="live-row-${l.id}">
+                <td><strong>${l.title}</strong></td>
+                <td>${l.owner_name}<br><span style="font-size:12px;color:#888;">${l.owner_email}</span></td>
+                <td>${l.area}</td>
+                <td>${l.rent} JD</td>
+                <td>${l.apartment_type}</td>
+                <td><span class="badge badge-${l.gender_preference}">${l.gender_preference}</span></td>
+                <td style="font-size:12px;color:#888;">${l.created_at ? l.created_at.substring(0,10) : '—'}</td>
+                <td>
+                  <a href="/listing/${l.id}" target="_blank"
+                     style="display:inline-block;padding:6px 14px;background:#f0ede8;color:#1a1a2e;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">👁 View</a>
+                  <button onclick="deleteListing(${l.id})"
+                     style="padding:6px 14px;background:#fce4ec;color:#880e4f;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">🗑 Delete</button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) { console.error(e); }
+  }
+
+  function clearLiveFilter() {
+    document.getElementById('live-date-from').value = '';
+    document.getElementById('live-date-to').value   = '';
+    loadLiveListings();
+  }
+
+  async function deleteListing(id) {
+    if (!confirm('Are you sure you want to delete this listing? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/admin/listings/${id}/delete`, { method: 'POST' });
+      if (res.ok) {
+        document.getElementById(`live-row-${id}`)?.remove();
+        loadStats();
+      } else {
+        alert('Failed to delete listing.');
+      }
+    } catch (e) { alert('Something went wrong.'); }
   }
 
   // ── LOAD PENDING LISTINGS ─────────────────────────────────────
@@ -310,11 +398,7 @@
                 <td><span class="badge badge-${l.gender_preference}">${l.gender_preference}</span></td>
                 <td style="font-size:12px;color:#888;">${l.created_at ? l.created_at.substring(0,10) : '—'}</td>
                 <td>
-                  <a href="/listing/${l.id}" target="_blank"
-                     style="display:inline-block;padding:6px 14px;background:#f0ede8;color:#1a1a2e;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">👁 View</a>
-                  ${l.id_photo ? `<a href="/${l.id_photo}" target="_blank"
-                     style="display:inline-block;padding:6px 14px;background:#e3f2fd;color:#1565c0;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">🪪 View ID</a>`
-                  : '<span style="font-size:12px;color:#aaa;margin-right:6px;">No ID</span>'}
+                  <a href="/listing/${l.id}" target="_blank" style="display:inline-block;padding:6px 14px;background:#f0ede8;color:#1a1a2e;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">👁 View</a>
                   <button class="btn-approve" onclick="approveListing(${l.id})">✅ Approve</button>
                   <button class="btn-reject"  onclick="rejectListing(${l.id})">❌ Reject</button>
                 </td>
@@ -323,7 +407,7 @@
         </table>`;
     } catch (e) { console.error(e); }
   }
-  
+
   async function approveListing(id) {
     const res = await fetch(`/api/admin/listings/${id}/approve`, { method: 'POST' });
     if (res.ok) { document.getElementById(`listing-row-${id}`)?.remove(); loadStats(); }
