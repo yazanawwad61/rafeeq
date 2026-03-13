@@ -11,6 +11,7 @@ import bleach
 import secrets
 import os
 import eventlet
+import json
 eventlet.monkey_patch()
 
 app = Flask(__name__)
@@ -431,17 +432,19 @@ def create_listing():
         if 'user_id' not in session:
             return jsonify({'error': 'Login required'}), 401
 
-        data = request.get_json()
-        title = sanitize(data.get('title', ''))
-        description = sanitize(data.get('description', ''))
-        apartment_type = data.get('apartment_type', '').strip().lower()
-        gender_preference = data.get('gender_preference', '').strip().lower()
-        rent = data.get('rent')
-        area = sanitize(data.get('area', ''))
-        latitude = data.get('latitude')
-        longitude = data.get('longitude')
-        rooms = data.get('rooms')
-        tags = data.get('tags', [])
+        # Now accepts multipart/form-data instead of JSON
+        title = sanitize(request.form.get('title', ''))
+        description = sanitize(request.form.get('description', ''))
+        apartment_type = request.form.get('apartment_type', '').strip().lower()
+        gender_preference = request.form.get(
+            'gender_preference', '').strip().lower()
+        rent = request.form.get('rent')
+        area = sanitize(request.form.get('area', ''))
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        rooms = request.form.get('rooms')
+        tags = json.loads(request.form.get('tags', '[]'))
+        id_photo_file = request.files.get('id_photo')
 
         if not all([title, apartment_type, gender_preference, rent, area]):
             return jsonify({'error': 'Title, type, gender preference, rent, and area are required'}), 400
@@ -449,6 +452,16 @@ def create_listing():
             return jsonify({'error': 'apartment_type must be shared or private'}), 400
         if gender_preference not in ('male', 'female', 'any'):
             return jsonify({'error': 'gender_preference must be male, female, or any'}), 400
+        if not id_photo_file:
+            return jsonify({'error': 'National ID photo is required'}), 400
+        if not allowed_file(id_photo_file.filename):
+            return jsonify({'error': 'ID photo must be a JPG, PNG, or WEBP image'}), 400
+
+        # Save ID photo
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        id_filename = f"id_{session['user_id']}_{secrets.token_hex(8)}.{id_photo_file.filename.rsplit('.', 1)[1].lower()}"
+        id_path = os.path.join(UPLOAD_FOLDER, id_filename)
+        id_photo_file.save(id_path)
 
         conn = get_db()
         cursor = conn.cursor()
@@ -457,20 +470,26 @@ def create_listing():
             cursor.execute('''
                 INSERT INTO listings
                     (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+                     rent, area, latitude, longitude, rooms, status, id_photo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
                 RETURNING id
             ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area, latitude, longitude, rooms))
+                  gender_preference, rent, area,
+                  float(latitude) if latitude else None,
+                  float(longitude) if longitude else None,
+                  int(rooms) if rooms else None, id_path))
             listing_id = cursor.fetchone()[0]
         else:
             cursor.execute('''
                 INSERT INTO listings
                     (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                     rent, area, latitude, longitude, rooms, status, id_photo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
             ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area, latitude, longitude, rooms))
+                  gender_preference, rent, area,
+                  float(latitude) if latitude else None,
+                  float(longitude) if longitude else None,
+                  int(rooms) if rooms else None, id_path))
             listing_id = cursor.lastrowid
 
         for tag in tags:

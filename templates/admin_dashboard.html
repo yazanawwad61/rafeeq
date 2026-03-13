@@ -310,7 +310,11 @@
                 <td><span class="badge badge-${l.gender_preference}">${l.gender_preference}</span></td>
                 <td style="font-size:12px;color:#888;">${l.created_at ? l.created_at.substring(0,10) : '—'}</td>
                 <td>
-                  <a href="/listing/${l.id}" target="_blank" style="display:inline-block;padding:6px 14px;background:#f0ede8;color:#1a1a2e;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">👁 View</a>
+                  <a href="/listing/${l.id}" target="_blank"
+                     style="display:inline-block;padding:6px 14px;background:#f0ede8;color:#1a1a2e;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">👁 View</a>
+                  ${l.id_photo ? `<a href="/${l.id_photo}" target="_blank"
+                     style="display:inline-block;padding:6px 14px;background:#e3f2fd;color:#1565c0;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">🪪 View ID</a>`
+                  : '<span style="font-size:12px;color:#aaa;margin-right:6px;">No ID</span>'}
                   <button class="btn-approve" onclick="approveListing(${l.id})">✅ Approve</button>
                   <button class="btn-reject"  onclick="rejectListing(${l.id})">❌ Reject</button>
                 </td>
@@ -319,7 +323,7 @@
         </table>`;
     } catch (e) { console.error(e); }
   }
-
+  
   async function approveListing(id) {
     const res = await fetch(`/api/admin/listings/${id}/approve`, { method: 'POST' });
     if (res.ok) { document.getElementById(`listing-row-${id}`)?.remove(); loadStats(); }
