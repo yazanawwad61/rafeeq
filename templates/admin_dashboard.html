@@ -1,20 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Dashboard — Rafeeq</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet"/>
-  <!-- PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-  <!-- Excel export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="/static/lang.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Tajawal', sans-serif; background: #f5f5f0; color: #1a1a2e; min-height: 100vh; }
-
-    /* ── SIDEBAR ── */
     .sidebar { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; background: #1a1a2e; display: flex; flex-direction: column; z-index: 100; }
     .sidebar-logo { padding: 28px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); }
     .sidebar-logo h1 { font-size: 22px; font-weight: 800; color: #fff; }
@@ -27,16 +24,14 @@
     .nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
     .sidebar-footer { padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
     .admin-email { font-size: 12px; color: #666; margin-bottom: 10px; word-break: break-all; }
+    .lang-toggle-sidebar { width: 100%; padding: 8px; background: rgba(255,255,255,0.07); color: #aaa; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 13px; cursor: pointer; margin-bottom: 8px; transition: background 0.2s; }
+    .lang-toggle-sidebar:hover { background: rgba(255,255,255,0.12); }
     .logout-btn { width: 100%; padding: 10px; background: rgba(231,111,81,0.15); color: #e76f51; border: 1px solid rgba(231,111,81,0.3); border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .logout-btn:hover { background: rgba(231,111,81,0.25); }
-
-    /* ── MAIN ── */
     .main { margin-left: 240px; padding: 32px; min-height: 100vh; }
     .page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; color: #1a1a2e; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-
-    /* ── STATS ── */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
     .stat-card { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #e8e4dc; }
     .stat-icon { font-size: 28px; margin-bottom: 10px; }
@@ -44,41 +39,21 @@
     .stat-label { font-size: 13px; color: #888; margin-top: 4px; }
     .stat-card.alert .stat-value { color: #e76f51; }
     .stat-card.success .stat-value { color: #2d6a4f; }
-
-    /* ── SECTION CARDS ── */
     .section-card { background: #fff; border-radius: 14px; border: 1px solid #e8e4dc; overflow: hidden; margin-bottom: 24px; }
     .section-header { padding: 18px 24px; border-bottom: 1px solid #f0ede8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .section-header h3 { font-size: 16px; font-weight: 700; }
     .section-header span { font-size: 13px; color: #888; }
-
-    /* ── EXPORT BUTTONS ── */
     .export-btns { display: flex; gap: 8px; }
-    .btn-export-pdf {
-      display: flex; align-items: center; gap: 6px;
-      padding: 7px 14px; border-radius: 8px; border: none;
-      background: #fce4ec; color: #880e4f;
-      font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: background 0.2s;
-    }
+    .btn-export-pdf { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; border: none; background: #fce4ec; color: #880e4f; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .btn-export-pdf:hover { background: #f8bbd0; }
-    .btn-export-excel {
-      display: flex; align-items: center; gap: 6px;
-      padding: 7px 14px; border-radius: 8px; border: none;
-      background: #e8f5e9; color: #2d6a4f;
-      font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: background 0.2s;
-    }
+    .btn-export-excel { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; border: none; background: #e8f5e9; color: #2d6a4f; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .btn-export-excel:hover { background: #c8e6c9; }
-
-    /* ── TABLES ── */
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; background: #fafaf8; border-bottom: 1px solid #f0ede8; }
     td { padding: 14px 20px; font-size: 14px; border-bottom: 1px solid #f5f5f0; vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #fafaf8; }
     .empty-row td { text-align: center; color: #aaa; padding: 32px; }
-
-    /* ── BADGES ── */
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
     .badge-pending    { background: #fff3e0; color: #e65100; }
     .badge-approved   { background: #e8f5e9; color: #2d6a4f; }
@@ -87,16 +62,12 @@
     .badge-female     { background: #fce4ec; color: #880e4f; }
     .badge-verified   { background: #e8f5e9; color: #2d6a4f; }
     .badge-unverified { background: #f5f5f0; color: #888; }
-
-    /* ── ACTION BUTTONS ── */
     .btn-approve { background: #2d6a4f; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; margin-right: 6px; transition: background 0.2s; }
     .btn-approve:hover { background: #1b4332; }
     .btn-reject { background: #fce4ec; color: #880e4f; border: none; padding: 6px 14px; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .btn-reject:hover { background: #f8bbd0; }
     .btn-resolve { background: #e3f2fd; color: #1565c0; border: none; padding: 6px 14px; border-radius: 6px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .btn-resolve:hover { background: #bbdefb; }
-
-    /* ── ADD ADMIN FORM ── */
     .add-admin-form { background: #fff; border-radius: 14px; border: 1px solid #e8e4dc; padding: 24px; margin-bottom: 24px; }
     .add-admin-form h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
@@ -113,7 +84,6 @@
 </head>
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
   <div class="sidebar-logo">
     <h1>Rafeeq <span>رفيق</span></h1>
@@ -143,11 +113,11 @@
   </nav>
   <div class="sidebar-footer">
     <div class="admin-email" id="adminEmail">Loading...</div>
+    <button class="lang-toggle-sidebar" onclick="toggleLang()"></button>
     <button class="logout-btn" onclick="adminLogout()">Sign Out</button>
   </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
   <!-- DASHBOARD TAB -->
@@ -259,11 +229,9 @@
 </div>
 
 <script>
-  // ── CACHED DATA (for export) ───────────────────────────────────
   let cachedReports = [];
   let cachedUsers   = [];
 
-  // ── TAB NAVIGATION ────────────────────────────────────────────
   function showTab(name, el) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -277,13 +245,11 @@
     if (name === 'admins')    loadAdmins();
   }
 
-  // ── LOGOUT ────────────────────────────────────────────────────
   async function adminLogout() {
     await fetch('/api/admin/logout', { method: 'POST' });
     window.location.href = '/admin/login';
   }
 
-  // ── LOAD STATS ────────────────────────────────────────────────
   async function loadStats() {
     try {
       const res  = await fetch('/api/admin/stats');
@@ -298,26 +264,25 @@
         b.textContent = data.pending_reports; b.style.display = 'flex';
       }
       document.getElementById('statsGrid').innerHTML = `
-        <div class="stat-card success" style="cursor:pointer" onclick="showTab('users', document.querySelectorAll('.nav-item')[3])">
+        <div class="stat-card success" style="cursor:pointer" onclick="showTab('users', document.querySelectorAll('.nav-item')[4])">
           <div class="stat-icon">👥</div><div class="stat-value">${data.total_users}</div><div class="stat-label">Total Users</div>
         </div>
         <div class="stat-card success" style="cursor:pointer" onclick="showTab('live', document.querySelectorAll('.nav-item')[1])">
           <div class="stat-icon">🏠</div><div class="stat-value">${data.approved_listings}</div><div class="stat-label">Live Listings</div>
         </div>
-        <div class="stat-card ${data.pending_listings > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('listings', document.querySelectorAll('.nav-item')[1])">
+        <div class="stat-card ${data.pending_listings > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('listings', document.querySelectorAll('.nav-item')[2])">
           <div class="stat-icon">⏳</div><div class="stat-value">${data.pending_listings}</div><div class="stat-label">Pending Review</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">💬</div><div class="stat-value">${data.total_messages}</div><div class="stat-label">Total Messages</div>
         </div>
-        <div class="stat-card ${data.pending_reports > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('reports', document.querySelectorAll('.nav-item')[2])">
+        <div class="stat-card ${data.pending_reports > 0 ? 'alert' : ''}" style="cursor:pointer" onclick="showTab('reports', document.querySelectorAll('.nav-item')[3])">
           <div class="stat-icon">🚩</div><div class="stat-value">${data.pending_reports}</div><div class="stat-label">Pending Reports</div>
         </div>
       `;
     } catch (e) { console.error(e); }
   }
 
-  // ── LOAD LIVE LISTINGS ───────────────────────────────────────
   async function loadLiveListings() {
     const dateFrom = document.getElementById('live-date-from').value;
     const dateTo   = document.getElementById('live-date-to').value;
@@ -366,16 +331,11 @@
     if (!confirm('Are you sure you want to delete this listing? This cannot be undone.')) return;
     try {
       const res = await fetch(`/api/admin/listings/${id}/delete`, { method: 'POST' });
-      if (res.ok) {
-        document.getElementById(`live-row-${id}`)?.remove();
-        loadStats();
-      } else {
-        alert('Failed to delete listing.');
-      }
+      if (res.ok) { document.getElementById(`live-row-${id}`)?.remove(); loadStats(); }
+      else { alert('Failed to delete listing.'); }
     } catch (e) { alert('Something went wrong.'); }
   }
 
-  // ── LOAD PENDING LISTINGS ─────────────────────────────────────
   async function loadPendingListings() {
     try {
       const res      = await fetch('/api/admin/listings/pending');
@@ -399,6 +359,9 @@
                 <td style="font-size:12px;color:#888;">${l.created_at ? l.created_at.substring(0,10) : '—'}</td>
                 <td>
                   <a href="/listing/${l.id}" target="_blank" style="display:inline-block;padding:6px 14px;background:#f0ede8;color:#1a1a2e;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">👁 View</a>
+                  ${l.id_photo ? `<a href="/${l.id_photo}" target="_blank"
+                     style="display:inline-block;padding:6px 14px;background:#e3f2fd;color:#1565c0;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-right:6px;">🪪 View ID</a>`
+                  : '<span style="font-size:12px;color:#aaa;margin-right:6px;">No ID</span>'}
                   <button class="btn-approve" onclick="approveListing(${l.id})">✅ Approve</button>
                   <button class="btn-reject"  onclick="rejectListing(${l.id})">❌ Reject</button>
                 </td>
@@ -418,7 +381,6 @@
     if (res.ok) { document.getElementById(`listing-row-${id}`)?.remove(); loadStats(); }
   }
 
-  // ── LOAD REPORTS ──────────────────────────────────────────────
   async function loadReports() {
     try {
       const res     = await fetch('/api/admin/reports');
@@ -450,7 +412,6 @@
     if (res.ok) { document.getElementById(`report-row-${id}`)?.remove(); loadStats(); }
   }
 
-  // ── LOAD USERS ────────────────────────────────────────────────
   async function loadUsers() {
     try {
       const res   = await fetch('/api/admin/users');
@@ -474,7 +435,6 @@
     } catch (e) { console.error(e); }
   }
 
-  // ── LOAD ADMINS ───────────────────────────────────────────────
   async function loadAdmins() {
     try {
       const res    = await fetch('/api/admin/admins');
@@ -487,7 +447,6 @@
     } catch (e) { console.error(e); }
   }
 
-  // ── CREATE ADMIN ──────────────────────────────────────────────
   async function createAdmin() {
     const email    = document.getElementById('newAdminEmail').value.trim();
     const password = document.getElementById('newAdminPassword').value;
@@ -505,128 +464,67 @@
     } catch (e) { msgEl.textContent = 'Something went wrong.'; msgEl.className = 'form-msg error'; }
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // EXPORT FUNCTIONS
-  // ══════════════════════════════════════════════════════════════
+  function getDate() { return new Date().toISOString().substring(0, 10); }
 
-  function getDate() {
-    return new Date().toISOString().substring(0, 10);
-  }
-
-  // ── REPORTS → PDF ─────────────────────────────────────────────
   function exportReportsPDF() {
     if (!cachedReports.length) { alert('No reports to export. Open the Reports tab first.'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
-
-    doc.setFontSize(18);
-    doc.setTextColor(45, 106, 79);
+    doc.setFontSize(18); doc.setTextColor(45, 106, 79);
     doc.text('Rafeeq — User Reports', 14, 18);
-
-    doc.setFontSize(10);
-    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(10); doc.setTextColor(120, 120, 120);
     doc.text(`Exported on ${getDate()} · ${cachedReports.length} report(s)`, 14, 26);
-
     doc.autoTable({
       startY: 32,
       head: [['Listing', 'Reported By', 'Reason', 'Description', 'Date']],
-      body: cachedReports.map(r => [
-        r.listing_title,
-        r.reporter_name,
-        r.reason,
-        r.description || '—',
-        r.created_at ? r.created_at.substring(0, 10) : '—'
-      ]),
+      body: cachedReports.map(r => [r.listing_title, r.reporter_name, r.reason, r.description || '—', r.created_at ? r.created_at.substring(0, 10) : '—']),
       headStyles: { fillColor: [45, 106, 79], fontStyle: 'bold', fontSize: 10 },
       alternateRowStyles: { fillColor: [245, 250, 247] },
       styles: { fontSize: 9, cellPadding: 5 },
       columnStyles: { 3: { cellWidth: 80 } }
     });
-
     doc.save(`rafeeq-reports-${getDate()}.pdf`);
   }
 
-  // ── REPORTS → EXCEL ───────────────────────────────────────────
   function exportReportsExcel() {
     if (!cachedReports.length) { alert('No reports to export. Open the Reports tab first.'); return; }
-
-    const rows = [
-      ['Listing', 'Reported By', 'Reason', 'Description', 'Date'],
-      ...cachedReports.map(r => [
-        r.listing_title,
-        r.reporter_name,
-        r.reason,
-        r.description || '',
-        r.created_at ? r.created_at.substring(0, 10) : ''
-      ])
-    ];
-
+    const rows = [['Listing', 'Reported By', 'Reason', 'Description', 'Date'], ...cachedReports.map(r => [r.listing_title, r.reporter_name, r.reason, r.description || '', r.created_at ? r.created_at.substring(0, 10) : ''])];
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 12 }];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reports');
     XLSX.writeFile(wb, `rafeeq-reports-${getDate()}.xlsx`);
   }
 
-  // ── USERS → PDF ───────────────────────────────────────────────
   function exportUsersPDF() {
     if (!cachedUsers.length) { alert('No users to export. Open the Users tab first.'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
-
-    doc.setFontSize(18);
-    doc.setTextColor(45, 106, 79);
+    doc.setFontSize(18); doc.setTextColor(45, 106, 79);
     doc.text('Rafeeq — Registered Users', 14, 18);
-
-    doc.setFontSize(10);
-    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(10); doc.setTextColor(120, 120, 120);
     doc.text(`Exported on ${getDate()} · ${cachedUsers.length} user(s)`, 14, 26);
-
     doc.autoTable({
       startY: 32,
       head: [['Name', 'Email', 'Gender', 'Phone', 'Verified', 'Joined']],
-      body: cachedUsers.map(u => [
-        u.name,
-        u.email,
-        u.gender,
-        u.phone || '—',
-        u.is_verified ? 'Verified' : 'Pending',
-        u.created_at ? u.created_at.substring(0, 10) : '—'
-      ]),
+      body: cachedUsers.map(u => [u.name, u.email, u.gender, u.phone || '—', u.is_verified ? 'Verified' : 'Pending', u.created_at ? u.created_at.substring(0, 10) : '—']),
       headStyles: { fillColor: [45, 106, 79], fontStyle: 'bold', fontSize: 10 },
       alternateRowStyles: { fillColor: [245, 250, 247] },
       styles: { fontSize: 9, cellPadding: 5 }
     });
-
     doc.save(`rafeeq-users-${getDate()}.pdf`);
   }
 
-  // ── USERS → EXCEL ─────────────────────────────────────────────
   function exportUsersExcel() {
     if (!cachedUsers.length) { alert('No users to export. Open the Users tab first.'); return; }
-
-    const rows = [
-      ['Name', 'Email', 'Gender', 'Phone', 'Verified', 'Joined'],
-      ...cachedUsers.map(u => [
-        u.name,
-        u.email,
-        u.gender,
-        u.phone || '',
-        u.is_verified ? 'Verified' : 'Pending',
-        u.created_at ? u.created_at.substring(0, 10) : ''
-      ])
-    ];
-
+    const rows = [['Name', 'Email', 'Gender', 'Phone', 'Verified', 'Joined'], ...cachedUsers.map(u => [u.name, u.email, u.gender, u.phone || '', u.is_verified ? 'Verified' : 'Pending', u.created_at ? u.created_at.substring(0, 10) : ''])];
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{ wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 12 }];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Users');
     XLSX.writeFile(wb, `rafeeq-users-${getDate()}.xlsx`);
   }
 
-  // ── INIT ──────────────────────────────────────────────────────
   loadStats();
 </script>
 </body>

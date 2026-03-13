@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +14,7 @@
     <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <script src="/static/lang.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -52,6 +53,12 @@
             border: 2px solid transparent; transition: all 0.2s;
         }
         .messages-btn:hover { background: #f0faf4; border-color: var(--accent); }
+        .lang-toggle {
+            background: none; border: 1px solid var(--border); border-radius: 8px;
+            padding: 6px 12px; font-family: 'Tajawal', sans-serif; font-size: 0.85rem;
+            cursor: pointer; transition: border-color 0.2s;
+        }
+        .lang-toggle:hover { border-color: var(--accent); }
         .hero {
             background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #40916c 100%);
             padding: 64px 32px; text-align: center; color: white;
@@ -74,8 +81,6 @@
         .results-count { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
         .results-count span { color: var(--accent); font-weight: 700; }
         .grid-container { max-width: 1400px; margin: 0 auto; padding: 32px 24px 64px; }
-
-        /* ── 4-COLUMN GRID ── */
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
         @media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 780px)  { .grid { grid-template-columns: repeat(2, 1fr); } }
@@ -86,7 +91,6 @@
             .filters-bar { padding: 12px 16px; }
             .grid-container { padding: 20px 16px 48px; }
         }
-
         .card {
             background: var(--surface); border-radius: 16px; overflow: hidden;
             cursor: pointer; transition: all 0.25s; box-shadow: var(--shadow);
@@ -111,7 +115,6 @@
         .card-area { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 4px; margin-bottom: 9px; }
         .card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
         .tag { padding: 2px 7px; background: #f0faf4; border: 1px solid #b7e4c7; border-radius: 20px; font-size: 0.66rem; color: var(--accent); }
-        .empty { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
         .mapboxgl-popup-content { font-family: 'Tajawal', sans-serif; border-radius: 10px; padding: 12px 16px; }
     </style>
 </head>
@@ -120,34 +123,35 @@
 <nav class="navbar">
     <a href="/" class="logo">&#x631;&#x641;&#x64A;&#x642; <span>Rafeeq</span></a>
     <div class="nav-center">
-        <a href="/" class="nav-tab active">&#x1F3E0; Listings</a>
-        <a href="/map" class="nav-tab">&#x1F5FA; Map</a>
+        <a href="/" class="nav-tab active" data-i18n="nav_listings">&#x1F3E0; Listings</a>
+        <a href="/map" class="nav-tab" data-i18n="nav_map">&#x1F5FA; Map</a>
     </div>
     <div class="nav-links" id="navLinks">
-        <button class="btn btn-outline" onclick="showLogin()">Login</button>
-        <button class="btn btn-primary" onclick="showSignup()" id="signupBtn">Sign Up</button>
+        <button class="lang-toggle" onclick="toggleLang()"></button>
+        <button class="btn btn-outline" onclick="showLogin()" data-i18n="nav_login">Login</button>
+        <button class="btn btn-primary" onclick="showSignup()" id="signupBtn" data-i18n="nav_signup">Sign Up</button>
     </div>
 </nav>
 
 <div class="hero">
-    <h1>Find Your Perfect <span>Home in Amman</span></h1>
-    <p>Verified shared and private apartments, built for students in Jordan.</p>
+    <h1 data-i18n="hero_title">Find Your Perfect <span>Home in Amman</span></h1>
+    <p data-i18n="hero_sub">Verified shared and private apartments, built for students in Jordan.</p>
 </div>
 
 <div class="filters-bar">
-    <span class="filter-label">Filter:</span>
+    <span class="filter-label" data-i18n="filter_label">Filter:</span>
     <select id="filter-gender" onchange="loadListings()">
-        <option value="">All Genders</option>
-        <option value="male">Males Only</option>
-        <option value="female">Females Only</option>
+        <option value="" data-i18n="filter_all_genders">All Genders</option>
+        <option value="male" data-i18n="filter_males">Males Only</option>
+        <option value="female" data-i18n="filter_females">Females Only</option>
     </select>
     <select id="filter-type" onchange="loadListings()">
-        <option value="">All Types</option>
-        <option value="shared">Shared</option>
-        <option value="private">Private</option>
+        <option value="" data-i18n="filter_all_types">All Types</option>
+        <option value="shared" data-i18n="filter_shared">Shared</option>
+        <option value="private" data-i18n="filter_private">Private</option>
     </select>
     <select id="filter-area" onchange="loadListings()">
-        <option value="">All Areas</option>
+        <option value="" data-i18n="filter_all_areas">All Areas</option>
         <option value="Sweifieh">Sweifieh</option>
         <option value="Abdoun">Abdoun</option>
         <option value="Shmeisani">Shmeisani</option>
@@ -160,17 +164,17 @@
         <option value="Downtown">Downtown</option>
     </select>
     <select id="filter-sort" onchange="loadListings()">
-        <option value="">Latest First</option>
-        <option value="price_asc">Price: Low to High</option>
-        <option value="price_desc">Price: High to Low</option>
+        <option value="" data-i18n="filter_sort_latest">Latest First</option>
+        <option value="price_asc" data-i18n="filter_sort_asc">Price: Low to High</option>
+        <option value="price_desc" data-i18n="filter_sort_desc">Price: High to Low</option>
     </select>
-    <input type="number" id="filter-max-rent" placeholder="Max rent (JD)" onchange="loadListings()" style="width:140px;">
-    <span class="results-count">Showing <span id="result-count">&#8212;</span> listings</span>
+    <input type="number" id="filter-max-rent" data-i18n="filter_max_rent" placeholder="Max rent (JD)" onchange="loadListings()" style="width:140px;">
+    <span class="results-count"><span data-i18n="filter_showing">Showing</span> <span id="result-count">&#8212;</span> <span data-i18n="filter_listings">listings</span></span>
 </div>
 
 <div class="grid-container">
     <div class="grid" id="grid">
-        <div style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--muted);">Loading listings...</div>
+        <div style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--muted);" data-i18n="loading">Loading listings...</div>
     </div>
 </div>
 
@@ -182,23 +186,23 @@
       <button onclick="closeAuthModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;">&#x2715;</button>
     </div>
     <div id="loginForm">
-      <input id="loginEmail" type="email" placeholder="Email address" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
-      <input id="loginPassword" type="password" placeholder="Password" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;"/>
-      <button onclick="submitLogin()" style="width:100%;padding:13px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Log In</button>
-      <p style="text-align:center;margin-top:16px;font-size:14px;color:#888;">Don't have an account? <span onclick="showSignup()" style="color:#2d6a4f;font-weight:600;cursor:pointer;">Sign up</span></p>
+      <input id="loginEmail" type="email" data-i18n="email_placeholder" placeholder="Email address" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
+      <input id="loginPassword" type="password" data-i18n="password_placeholder" placeholder="Password" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;"/>
+      <button onclick="submitLogin()" style="width:100%;padding:13px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;" data-i18n="btn_login">Log In</button>
+      <p style="text-align:center;margin-top:16px;font-size:14px;color:#888;"><span data-i18n="no_account">Don't have an account?</span> <span onclick="showSignup()" style="color:#2d6a4f;font-weight:600;cursor:pointer;" data-i18n="sign_up_link">Sign up</span></p>
     </div>
     <div id="signupForm" style="display:none;">
-      <input id="signupName" type="text" placeholder="Full name" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
-      <input id="signupEmail" type="email" placeholder="Email address" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
-      <input id="signupPassword" type="password" placeholder="Password (min 6 characters)" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
+      <input id="signupName" type="text" data-i18n="full_name" placeholder="Full name" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
+      <input id="signupEmail" type="email" data-i18n="email_placeholder" placeholder="Email address" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
+      <input id="signupPassword" type="password" data-i18n="password_hint" placeholder="Password (min 6 characters)" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;"/>
       <select id="signupGender" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:12px;outline:none;background:#fff;">
-        <option value="">Select gender</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
+        <option value="" data-i18n="select_gender">Select gender</option>
+        <option value="male" data-i18n="gender_male">Male</option>
+        <option value="female" data-i18n="gender_female">Female</option>
       </select>
-      <input id="signupPhone" type="text" placeholder="Phone number (optional)" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;"/>
-      <button id="signupSubmitBtn" onclick="submitSignup()" style="width:100%;padding:13px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Create Account</button>
-      <p style="text-align:center;margin-top:16px;font-size:14px;color:#888;">Already have an account? <span onclick="showLogin()" style="color:#2d6a4f;font-weight:600;cursor:pointer;">Log in</span></p>
+      <input id="signupPhone" type="text" data-i18n="phone_optional" placeholder="Phone number (optional)" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;"/>
+      <button id="signupSubmitBtn" onclick="submitSignup()" style="width:100%;padding:13px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;" data-i18n="btn_create">Create Account</button>
+      <p style="text-align:center;margin-top:16px;font-size:14px;color:#888;"><span data-i18n="have_account">Already have an account?</span> <span onclick="showLogin()" style="color:#2d6a4f;font-weight:600;cursor:pointer;" data-i18n="log_in_link">Log in</span></p>
     </div>
     <p id="authError" style="color:#e76f51;font-size:13px;text-align:center;margin-top:12px;min-height:20px;"></p>
   </div>
@@ -208,41 +212,46 @@
 <div id="postListingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
   <div style="background:#fff;border-radius:20px;padding:32px;width:100%;max-width:520px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-      <h2 style="font-size:22px;font-weight:800;">Post a Listing</h2>
+      <h2 style="font-size:22px;font-weight:800;" data-i18n="post_title">Post a Listing</h2>
       <button onclick="closePostListing()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;">&#x2715;</button>
     </div>
     <form id="postListingForm">
-      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Title *</label>
-      <input id="plTitle" type="text" placeholder="e.g. Room in Sweifieh Apartment" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;"/>
-      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Description</label>
-      <textarea id="plDescription" placeholder="Describe your apartment..." style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;resize:vertical;height:90px;"></textarea>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_title">Title *</label>
+      <input id="plTitle" type="text" data-i18n="pl_title_ph" placeholder="e.g. Room in Sweifieh Apartment" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;"/>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_desc">Description</label>
+      <textarea id="plDescription" data-i18n="pl_desc_ph" placeholder="Describe your apartment..." style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;resize:vertical;height:90px;"></textarea>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
         <div>
-          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Type *</label>
+          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_type">Type *</label>
           <select id="plType" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;outline:none;background:#fff;">
-            <option value="">Select type</option><option value="shared">Shared</option><option value="private">Private</option>
+            <option value="" data-i18n="pl_select_type">Select type</option>
+            <option value="shared" data-i18n="filter_shared">Shared</option>
+            <option value="private" data-i18n="filter_private">Private</option>
           </select>
         </div>
         <div>
-          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Gender Preference *</label>
+          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_gender_pref">Gender Preference *</label>
           <select id="plGender" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;outline:none;background:#fff;">
-            <option value="">Select preference</option><option value="male">Males Only</option><option value="female">Females Only</option><option value="any">Any Gender</option>
+            <option value="" data-i18n="pl_select_gender">Select preference</option>
+            <option value="male" data-i18n="pl_males_only">Males Only</option>
+            <option value="female" data-i18n="pl_females_only">Females Only</option>
+            <option value="any" data-i18n="pl_any">Any Gender</option>
           </select>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
         <div>
-          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Monthly Rent (JD) *</label>
-          <input id="plRent" type="number" placeholder="e.g. 150" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;outline:none;"/>
+          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_rent">Monthly Rent (JD) *</label>
+          <input id="plRent" type="number" data-i18n="pl_rent_ph" placeholder="e.g. 150" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;outline:none;"/>
         </div>
         <div>
-          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Number of Rooms</label>
-          <input id="plRooms" type="number" placeholder="e.g. 3" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;outline:none;"/>
+          <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_rooms">Number of Rooms</label>
+          <input id="plRooms" type="number" data-i18n="pl_rooms_ph" placeholder="e.g. 3" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;outline:none;"/>
         </div>
       </div>
-      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Area *</label>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_area">Area *</label>
       <select id="plArea" style="width:100%;padding:12px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:16px;outline:none;background:#fff;">
-        <option value="">Select area</option>
+        <option value="" data-i18n="pl_select_area">Select area</option>
         <option value="Sweifieh">Sweifieh</option><option value="Abdoun">Abdoun</option>
         <option value="Shmeisani">Shmeisani</option><option value="Jubeiha">Jubeiha</option>
         <option value="Tla Al Ali">Tla Al Ali</option><option value="Khalda">Khalda</option>
@@ -251,12 +260,12 @@
         <option value="Mecca St">Mecca St</option><option value="Downtown">Downtown</option>
         <option value="Jabal Amman">Jabal Amman</option><option value="Other">Other</option>
       </select>
-      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#x1F4CD; Pin Your Apartment Location</label>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_pin">📍 Pin Your Apartment Location</label>
       <div id="pinPickerMap" style="width:100%;height:240px;border-radius:10px;border:2px solid #e8e4dc;margin-bottom:6px;"></div>
-      <p style="font-size:12px;color:#aaa;text-align:center;margin-bottom:16px;">Click the map to drop a pin on your exact location</p>
+      <p style="font-size:12px;color:#aaa;text-align:center;margin-bottom:16px;" data-i18n="pl_pin_hint">Click the map to drop a pin on your exact location</p>
       <p id="pinConfirmed" style="font-size:13px;color:#2d6a4f;font-weight:600;text-align:center;margin-bottom:16px;min-height:20px;"></p>
       <input type="hidden" id="plLat"/><input type="hidden" id="plLng"/>
-      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Lifestyle Tags</label>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_tags">Lifestyle Tags</label>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Doesn't Smoke"> Doesn't Smoke</label>
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Prays"> Prays</label>
@@ -265,13 +274,13 @@
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Doesn't Bring Guests"> Doesn't Bring Guests</label>
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Pet Friendly"> Pet Friendly</label>
       </div>
-      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">🪪 National ID Photo *</label>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_id_label">🪪 National ID Photo *</label>
       <div id="idUploadArea" style="border:2px dashed #e8e4dc;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-bottom:6px;transition:border-color 0.2s;" onclick="document.getElementById('plIdPhoto').click()">
-        <div id="idUploadLabel" style="color:#aaa;font-size:14px;">Click to upload your National ID photo</div>
+        <div id="idUploadLabel" style="color:#aaa;font-size:14px;" data-i18n="pl_id_hint">Click to upload your National ID photo</div>
       </div>
       <input type="file" id="plIdPhoto" accept="image/*" style="display:none;" onchange="handleIdUpload(this)"/>
-      <p style="font-size:11px;color:#aaa;margin-bottom:20px;">Required for verification. Your ID will only be seen by Rafeeq admins and never shared publicly.</p>
-      <button type="button" onclick="submitListing()" style="width:100%;padding:14px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Submit Listing for Review</button>
+      <p style="font-size:11px;color:#aaa;margin-bottom:20px;" data-i18n="pl_id_privacy">Required for verification. Your ID will only be seen by Rafeeq admins and never shared publicly.</p>
+      <button type="button" onclick="submitListing()" style="width:100%;padding:14px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;" data-i18n="pl_submit">Submit Listing for Review</button>
     </form>
     <p id="postListingError" style="color:#e76f51;font-size:13px;text-align:center;margin-top:12px;min-height:20px;"></p>
   </div>
@@ -299,7 +308,8 @@ async function loadListings() {
 function renderGrid(listings) {
     const grid = document.getElementById('grid');
     if (listings.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted);"><div style="font-size:3rem;margin-bottom:12px;">&#x1F50D;</div><p>No listings found. Try adjusting your filters.</p></div>';
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted);"><div style="font-size:3rem;margin-bottom:12px;">&#x1F50D;</div><p data-i18n="no_listings">No listings found. Try adjusting your filters.</p></div>';
+        applyLang();
         return;
     }
     grid.innerHTML = listings.map(l => {
@@ -307,9 +317,10 @@ function renderGrid(listings) {
         const imgHTML = photo
             ? '<img class="card-img" src="' + (photo.startsWith('http') ? photo : '/' + photo) + '" alt="' + l.title + '" loading="lazy"/>'
             : '<div class="card-img-placeholder">&#x1F3E0;</div>';
-        const genderLabel = l.gender_preference === 'male' ? '&#x1F468; Males Only' : l.gender_preference === 'female' ? '&#x1F469; Females Only' : '&#x1F465; Any Gender';
-        const typeLabel   = l.apartment_type === 'shared' ? '&#x1F3D8; Shared' : '&#x1F3E0; Private';
-        const tags        = (l.tags || []).slice(0,2).map(t => '<span class="tag">' + t + '</span>').join('');
+        const genderLabel = l.gender_preference === 'male' ? t('males_only') : l.gender_preference === 'female' ? t('females_only') : t('any_gender');
+        const typeLabel   = l.apartment_type === 'shared' ? t('type_shared') : t('type_private');
+        const tags        = (l.tags || []).slice(0,2).map(tag => '<span class="tag">' + tag + '</span>').join('');
+        const roomsText   = l.rooms ? ' &nbsp;&middot;&nbsp; ' + l.rooms + ' ' + t('rooms') : '';
         return '<a class="card" href="/listing/' + l.id + '">'
             + '<div class="card-img-wrap">' + imgHTML
             + '<span class="card-gender-badge badge-' + l.gender_preference + '">' + genderLabel + '</span>'
@@ -318,9 +329,9 @@ function renderGrid(listings) {
             + '<div class="card-body">'
             + '<div class="card-top">'
             + '<div class="card-title">' + l.title + '</div>'
-            + '<div class="card-price">' + l.rent + ' JD<br><span>/month</span></div>'
+            + '<div class="card-price">' + l.rent + ' JD<br><span>' + t('per_month') + '</span></div>'
             + '</div>'
-            + '<div class="card-area">&#x1F4CD; ' + l.area + (l.rooms ? ' &nbsp;&middot;&nbsp; ' + l.rooms + ' rooms' : '') + '</div>'
+            + '<div class="card-area">&#x1F4CD; ' + l.area + roomsText + '</div>'
             + '<div class="card-tags">' + tags + '</div>'
             + '</div></a>';
     }).join('');
@@ -335,10 +346,12 @@ function updateNavbar() {
     const nav = document.getElementById('navLinks');
     if (currentUser) {
         nav.innerHTML =
-            '<button class="btn btn-outline" onclick="showPostListing()">+ Post Listing</button>'
-            + '<a href="/messages" class="messages-btn">&#x1F4AC; Messages</a>'
+            '<button class="lang-toggle" onclick="toggleLang()"></button>'
+            + '<button class="btn btn-outline" onclick="showPostListing()" data-i18n="nav_post">+ Post Listing</button>'
+            + '<a href="/messages" class="messages-btn" data-i18n="nav_messages">&#x1F4AC; Messages</a>'
             + '<span style="font-weight:600;color:var(--accent);font-size:0.9rem;">&#x1F44B; ' + currentUser.name.split(' ')[0] + '</span>'
-            + '<button class="btn btn-outline" onclick="logout()">Logout</button>';
+            + '<button class="btn btn-outline" onclick="logout()" data-i18n="nav_logout">Logout</button>';
+        applyLang();
     }
 }
 
@@ -348,17 +361,20 @@ function showLogin() {
     document.getElementById('authModal').style.display = 'flex';
     document.getElementById('loginForm').style.display = 'block';
     document.getElementById('signupForm').style.display = 'none';
-    document.getElementById('authModalTitle').textContent = 'Welcome back';
+    document.getElementById('authModalTitle').textContent = t('welcome_back');
 }
 
 function showSignup() {
     document.getElementById('authModal').style.display = 'flex';
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('signupForm').style.display = 'block';
-    document.getElementById('authModalTitle').textContent = 'Create your account';
+    document.getElementById('authModalTitle').textContent = t('create_account');
 }
 
-function closeAuthModal() { document.getElementById('authModal').style.display = 'none'; document.getElementById('authError').textContent = ''; }
+function closeAuthModal() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('authError').textContent = '';
+}
 
 async function submitLogin() {
     const email = document.getElementById('loginEmail').value.trim();
@@ -387,10 +403,10 @@ async function submitSignup() {
         if (res.ok) {
             document.getElementById('authError').style.color = '#2d6a4f';
             document.getElementById('authError').textContent = 'Account created! You can now log in.';
-            btn.textContent = 'Create Account'; btn.disabled = false;
+            btn.textContent = t('btn_create'); btn.disabled = false;
             setTimeout(() => { closeAuthModal(); document.getElementById('authError').style.color = '#e76f51'; }, 3000);
-        } else { document.getElementById('authError').textContent = data.error; btn.textContent = 'Create Account'; btn.disabled = false; }
-    } catch(e) { document.getElementById('authError').textContent = 'Something went wrong.'; btn.textContent = 'Create Account'; btn.disabled = false; }
+        } else { document.getElementById('authError').textContent = data.error; btn.textContent = t('btn_create'); btn.disabled = false; }
+    } catch(e) { document.getElementById('authError').textContent = 'Something went wrong.'; btn.textContent = t('btn_create'); btn.disabled = false; }
 }
 
 function showPostListing() {
@@ -406,7 +422,7 @@ function closePostListing() {
     document.getElementById('pinConfirmed').textContent = '';
     document.getElementById('plLat').value = ''; document.getElementById('plLng').value = '';
     document.getElementById('idUploadArea').style.borderColor = '#e8e4dc';
-    document.getElementById('idUploadLabel').innerHTML = 'Click to upload your National ID photo';
+    document.getElementById('idUploadLabel').textContent = t('pl_id_hint');
     if (pinPickerMarker) { pinPickerMarker.remove(); pinPickerMarker = null; }
     if (pinPickerMap)    { pinPickerMap.remove();    pinPickerMap = null; }
 }
@@ -417,7 +433,7 @@ function initPinPickerMap() {
     pinPickerMap.on('click', (e) => {
         document.getElementById('plLat').value = e.lngLat.lat;
         document.getElementById('plLng').value = e.lngLat.lng;
-        document.getElementById('pinConfirmed').textContent = 'Location pinned!';
+        document.getElementById('pinConfirmed').textContent = t('pl_pinned');
         if (pinPickerMarker) pinPickerMarker.setLngLat(e.lngLat);
         else pinPickerMarker = new mapboxgl.Marker({color:'#2d6a4f'}).setLngLat(e.lngLat).addTo(pinPickerMap);
     });
@@ -472,14 +488,13 @@ async function submitListing() {
         const data = await res.json();
         if (res.ok) {
             document.getElementById('postListingError').style.color = '#2d6a4f';
-            document.getElementById('postListingError').textContent = 'Listing submitted! It will go live after admin review.';
+            document.getElementById('postListingError').textContent = t('pl_success');
             setTimeout(() => { closePostListing(); document.getElementById('postListingError').style.color = '#e76f51'; }, 3000);
         } else document.getElementById('postListingError').textContent = data.error;
     } catch(e) { document.getElementById('postListingError').textContent = 'Something went wrong.'; }
 }
 
 checkAuth().then(() => {
-    // Auto-open login/signup if redirected from listing page
     const action = new URLSearchParams(window.location.search).get('action');
     if (action === 'login')  showLogin();
     if (action === 'signup') showSignup();

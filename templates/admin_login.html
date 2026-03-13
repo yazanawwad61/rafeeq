@@ -1,106 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Login — Rafeeq</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <script src="/static/lang.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Tajawal', sans-serif;
-      background: #f5f5f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-    .card {
-      background: #fff;
-      border-radius: 20px;
-      padding: 48px 40px;
-      width: 100%;
-      max-width: 420px;
-      border: 1px solid #e8e4dc;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-    }
-    .logo {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .logo h1 {
-      font-size: 28px;
-      font-weight: 800;
-      color: #2d6a4f;
-    }
+    body { font-family: 'Tajawal', sans-serif; background: #f5f5f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: #fff; border-radius: 20px; padding: 48px 40px; width: 100%; max-width: 420px; border: 1px solid #e8e4dc; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo h1 { font-size: 28px; font-weight: 800; color: #2d6a4f; }
     .logo h1 span { color: #e76f51; }
-    .logo p {
-      font-size: 13px;
-      color: #888;
-      margin-top: 6px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
+    .logo p { font-size: 13px; color: #888; margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
     .form-group { margin-bottom: 16px; }
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 700;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-    input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 1px solid #e8e4dc;
-      border-radius: 10px;
-      font-family: 'Tajawal', sans-serif;
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
+    label { display: block; font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px 16px; border: 1px solid #e8e4dc; border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
     input:focus { border-color: #2d6a4f; }
-    .btn {
-      width: 100%;
-      padding: 14px;
-      background: #2d6a4f;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-family: 'Tajawal', sans-serif;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background 0.2s;
-    }
+    .btn { width: 100%; padding: 14px; background: #2d6a4f; color: #fff; border: none; border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
     .btn:hover { background: #1b4332; }
-    .error {
-      color: #e76f51;
-      font-size: 13px;
-      text-align: center;
-      margin-top: 14px;
-      min-height: 20px;
-    }
-    .back {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 13px;
-      color: #aaa;
-    }
+    .error { color: #e76f51; font-size: 13px; text-align: center; margin-top: 14px; min-height: 20px; }
+    .back { text-align: center; margin-top: 20px; font-size: 13px; color: #aaa; }
     .back a { color: #2d6a4f; text-decoration: none; font-weight: 600; }
+    .lang-toggle { background: none; border: 1px solid #e8e4dc; border-radius: 8px; padding: 5px 11px; font-family: 'Tajawal', sans-serif; font-size: 0.82rem; cursor: pointer; display: block; margin: 0 auto 24px; transition: border-color 0.2s; }
+    .lang-toggle:hover { border-color: #2d6a4f; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">
       <h1>Rafeeq <span>رفيق</span></h1>
-      <p>Admin Panel</p>
+      <p data-i18n="admin_subtitle">Admin Panel</p>
     </div>
+
+    <button class="lang-toggle" onclick="toggleLang()"></button>
 
     <div class="form-group">
       <label>Email</label>
@@ -113,7 +47,7 @@
              onkeydown="if(event.key==='Enter') submitLogin()"/>
     </div>
 
-    <button class="btn" onclick="submitLogin()">Sign In to Admin Panel</button>
+    <button class="btn" onclick="submitLogin()" data-i18n="admin_btn">Sign In</button>
     <p class="error" id="error"></p>
 
     <div class="back">
@@ -126,28 +60,13 @@
       const email    = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const errorEl  = document.getElementById('error');
-
-      if (!email || !password) {
-        errorEl.textContent = 'Please fill in all fields.';
-        return;
-      }
-
+      if (!email || !password) { errorEl.textContent = 'Please fill in all fields.'; return; }
       try {
-        const res  = await fetch('/api/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
+        const res  = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
         const data = await res.json();
-
-        if (res.ok) {
-          window.location.href = '/admin/dashboard';
-        } else {
-          errorEl.textContent = data.error;
-        }
-      } catch (e) {
-        errorEl.textContent = 'Something went wrong. Please try again.';
-      }
+        if (res.ok) { window.location.href = '/admin/dashboard'; }
+        else { errorEl.textContent = data.error; }
+      } catch (e) { errorEl.textContent = 'Something went wrong. Please try again.'; }
     }
   </script>
 </body>
