@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Profile — Rafeeq</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <meta name="theme-color" content="#2d6a4f"/>
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
+  <script src="/static/lang.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root { --bg:#f8f7f4; --surface:#fff; --border:#e8e4dc; --accent:#2d6a4f; --accent2:#e76f51; --text:#1a1a2e; --muted:#6b7280; --shadow:0 2px 16px rgba(0,0,0,0.08); }
+    body { font-family:'Tajawal',sans-serif; background:var(--bg); color:var(--text); }
+
+    /* ── NAVBAR ── */
+    .navbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 32px; height:68px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); }
+    .logo { font-size:1.6rem; font-weight:800; color:var(--accent); letter-spacing:-0.5px; text-decoration:none; }
+    .logo span { color:var(--accent2); }
+    .nav-links { display:flex; gap:10px; align-items:center; }
+    .btn { padding:9px 18px; border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; border:none; transition:all 0.2s; }
+    .btn-outline { background:transparent; border:2px solid var(--accent); color:var(--accent); }
+    .btn-outline:hover { background:var(--accent); color:white; }
+    .btn-primary { background:var(--accent); color:white; }
+    .lang-toggle { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-family:'Tajawal',sans-serif; font-size:0.85rem; cursor:pointer; transition:border-color 0.2s; }
+    .lang-toggle:hover { border-color:var(--accent); }
+    .messages-btn { display:flex; align-items:center; gap:6px; color:var(--accent); font-weight:600; text-decoration:none; font-size:0.9rem; padding:9px 14px; border-radius:10px; border:2px solid transparent; transition:all 0.2s; }
+    .messages-btn:hover { background:#f0faf4; border-color:var(--accent); }
+    .profile-dropdown { position:relative; }
+    .profile-btn { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--bg); border:1px solid var(--border); border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; color:var(--text); transition:all 0.2s; }
+    .profile-btn:hover { border-color:var(--accent); background:#f0faf4; }
+    .dropdown-menu { display:none; position:absolute; top:calc(100% + 8px); right:0; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:180px; overflow:hidden; z-index:200; }
+    .dropdown-menu.open { display:block; }
+    .dropdown-item { display:flex; align-items:center; gap:10px; padding:12px 16px; font-size:14px; font-weight:500; color:var(--text); cursor:pointer; transition:background 0.15s; text-decoration:none; border:none; background:none; width:100%; font-family:'Tajawal',sans-serif; }
+    .dropdown-item:hover { background:var(--bg); }
+    .dropdown-divider { height:1px; background:var(--border); margin:4px 0; }
+    .dropdown-item.danger { color:var(--accent2); }
+    .dropdown-item.danger:hover { background:#fff5f0; }
+
+    /* ── HERO ── */
+    .profile-hero { background:linear-gradient(135deg,#1b4332 0%,#2d6a4f 50%,#40916c 100%); padding:56px 32px 0; text-align:center; }
+    .avatar-wrap { position:relative; display:inline-block; margin-bottom:-44px; }
+    .avatar { width:96px; height:96px; border-radius:50%; border:4px solid #fff; background:#1b4332; display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:800; color:#fff; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.25); }
+    .avatar img { width:100%; height:100%; object-fit:cover; }
+
+    /* ── PROFILE CARD ── */
+    .profile-card { background:var(--surface); max-width:700px; margin:0 auto; border-radius:20px; padding:60px 32px 32px; border:1px solid var(--border); position:relative; top:-1px; }
+    .profile-outer { max-width:860px; margin:0 auto; padding:0 24px 64px; }
+    .profile-name { font-size:26px; font-weight:800; color:var(--text); margin-bottom:4px; }
+    .profile-username { font-size:15px; color:var(--muted); margin-bottom:8px; }
+    .profile-joined { font-size:13px; color:#aaa; margin-bottom:20px; }
+    .edit-profile-btn { padding:10px 24px; background:var(--bg); border:1px solid var(--border); border-radius:10px; font-family:'Tajawal',sans-serif; font-size:14px; font-weight:600; cursor:pointer; color:var(--text); transition:all 0.2s; }
+    .edit-profile-btn:hover { border-color:var(--accent); color:var(--accent); background:#f0faf4; }
+
+    /* ── INSIGHTS ── */
+    .insights-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:24px 0 0; }
+    .insight-card { background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:18px; text-align:center; }
+    .insight-icon { font-size:24px; margin-bottom:6px; }
+    .insight-value { font-size:28px; font-weight:800; color:var(--text); }
+    .insight-label { font-size:12px; color:var(--muted); margin-top:3px; font-weight:500; }
+
+    /* ── LISTINGS SECTION ── */
+    .section-title { font-size:18px; font-weight:700; margin:32px 0 16px; color:var(--text); }
+    .listings-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    @media (max-width:780px) { .listings-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:480px) { .listings-grid { grid-template-columns:1fr; } .insights-strip { grid-template-columns:repeat(3,1fr); } }
+
+    /* ── LISTING CARD ── */
+    .listing-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; transition:all 0.2s; cursor:pointer; text-decoration:none; display:block; color:var(--text); }
+    .listing-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.1); border-color:var(--accent); }
+    .card-img-wrap { position:relative; width:100%; padding-top:66%; overflow:hidden; background:#e8f4ea; }
+    .card-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
+    .listing-card:hover .card-img { transform:scale(1.04); }
+    .card-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:2rem; }
+    .card-body { padding:12px 14px; }
+    .card-title { font-size:14px; font-weight:700; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .card-meta { font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .card-rent { font-size:15px; font-weight:800; color:var(--accent); }
+    .card-status { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; margin-top:6px; }
+    .status-approved { background:#e8f5e9; color:#2d6a4f; }
+    .status-pending  { background:#fff3e0; color:#e65100; }
+    .status-rejected { background:#fce4ec; color:#880e4f; }
+
+    /* ── INSIGHTS BAR on card (owner only) ── */
+    .card-insights { display:flex; gap:12px; padding:8px 14px; background:#f8f7f4; border-top:1px solid var(--border); font-size:12px; color:var(--muted); font-weight:600; }
+    .card-insights span { display:flex; align-items:center; gap:4px; }
+
+    /* ── EMPTY ── */
+    .empty { text-align:center; padding:60px 20px; color:var(--muted); grid-column:1/-1; }
+    .empty-icon { font-size:3rem; margin-bottom:12px; }
+
+    /* ── LOADING ── */
+    .loading { text-align:center; padding:80px 0; color:var(--muted); }
+    .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── SETTINGS MODAL ── */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:400; align-items:center; justify-content:center; padding:24px; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--surface); border-radius:20px; padding:32px; width:100%; max-width:460px; margin:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+    .modal-header h2 { font-size:20px; font-weight:800; }
+    .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#aaa; }
+    .field-label { font-size:12px; font-weight:700; color:#888; display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+    .field-input { width:100%; padding:11px 14px; border:1px solid var(--border); border-radius:10px; font-family:'Tajawal',sans-serif; font-size:15px; margin-bottom:14px; outline:none; transition:border-color 0.2s; }
+    .field-input:focus { border-color:var(--accent); }
+    .btn-save { width:100%; padding:14px; background:var(--accent); color:#fff; border:none; border-radius:10px; font-family:'Tajawal',sans-serif; font-size:16px; font-weight:700; cursor:pointer; }
+    .btn-save:hover { opacity:0.85; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="logo">&#x631;&#x641;&#x64A;&#x642; <span>Rafeeq</span></a>
+  <div style="display:flex;gap:4px;background:var(--bg);border-radius:12px;padding:4px;">
+    <a href="/" style="padding:8px 20px;border-radius:9px;font-family:'Tajawal',sans-serif;font-size:0.9rem;font-weight:600;text-decoration:none;color:var(--muted);" data-i18n="nav_listings">🏠 Listings</a>
+    <a href="/map" style="padding:8px 20px;border-radius:9px;font-family:'Tajawal',sans-serif;font-size:0.9rem;font-weight:600;text-decoration:none;color:var(--muted);" data-i18n="nav_map">🗺 Map</a>
+  </div>
+  <div class="nav-links" id="navLinks">
+    <button class="lang-toggle" onclick="toggleLang()"></button>
+    <button class="btn btn-outline" data-i18n="nav_login" onclick="window.location.href='/'">Login</button>
+  </div>
+</nav>
+
+<!-- CONTENT -->
+<div id="loadingState" class="loading" style="margin-top:60px;">
+  <div class="spinner"></div>
+  Loading profile...
+</div>
+<div id="profileContent" style="display:none;">
+  <!-- populated by JS -->
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>⚙️ Account Settings</h2>
+      <button class="modal-close" onclick="closeSettings()">&#x2715;</button>
+    </div>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div id="settingsAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:#2d6a4f;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;margin:0 auto 12px;overflow:hidden;"></div>
+      <button onclick="document.getElementById('settingsPicInput').click()" style="padding:7px 16px;background:#f0faf4;color:#2d6a4f;border:1px solid #b7e4c7;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">📷 Change Photo</button>
+      <input type="file" id="settingsPicInput" accept="image/*" style="display:none;" onchange="previewAvatar(this)"/>
+    </div>
+    <label class="field-label">Full Name</label>
+    <input id="settingsName" class="field-input" type="text"/>
+    <label class="field-label">Phone Number</label>
+    <input id="settingsPhone" class="field-input" type="text"/>
+    <button class="btn-save" onclick="saveSettings()">Save Changes</button>
+    <p id="settingsMsg" style="font-size:13px;text-align:center;margin-top:12px;min-height:20px;"></p>
+  </div>
+</div>
+
+<script>
+  const profileUsername = window.location.pathname.split('/profile/')[1];
+  let currentUser  = null;
+  let profileData  = null;
+
+  // ── AUTH ──────────────────────────────────────────────────────
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/me');
+      if (res.ok) { currentUser = await res.json(); buildNavbar(); }
+    } catch(e) {}
+  }
+
+  function buildNavbar() {
+    if (!currentUser) return;
+    const avatarHTML = currentUser.profile_picture
+      ? `<img src="${currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>`
+      : `<span style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${(currentUser.name||'?')[0].toUpperCase()}</span>`;
+    document.getElementById('navLinks').innerHTML =
+      '<button class="lang-toggle" onclick="toggleLang()"></button>'
+      + '<button class="btn btn-outline" onclick="window.location.href=\'/?action=post\'" data-i18n="nav_post">+ Post Listing</button>'
+      + '<a href="/messages" class="messages-btn" data-i18n="nav_messages">💬 Messages</a>'
+      + '<div class="profile-dropdown" id="profileDropdown">'
+      + `<button class="profile-btn" onclick="toggleDropdown()">${avatarHTML} ${currentUser.name.split(' ')[0]} ▾</button>`
+      + '<div class="dropdown-menu" id="dropdownMenu">'
+      + `<a href="/profile/${currentUser.username}" class="dropdown-item">👤 View Profile</a>`
+      + '<a href="/my-listings" class="dropdown-item">📋 My Listings</a>'
+      + '<button class="dropdown-item" onclick="openSettings();toggleDropdown()">⚙️ Settings</button>'
+      + '<div class="dropdown-divider"></div>'
+      + '<button class="dropdown-item danger" onclick="logout()">🚪 Logout</button>'
+      + '</div></div>';
+    applyLang();
+    document.addEventListener('click', e => {
+      const dd = document.getElementById('profileDropdown');
+      if (dd && !dd.contains(e.target)) document.getElementById('dropdownMenu')?.classList.remove('open');
+    });
+  }
+
+  function toggleDropdown() { document.getElementById('dropdownMenu')?.classList.toggle('open'); }
+  async function logout() { await fetch('/api/logout', {method:'POST'}); window.location.href='/'; }
+
+  // ── LOAD PROFILE ──────────────────────────────────────────────
+  async function loadProfile() {
+    try {
+      const res = await fetch(`/api/profile/${profileUsername}`);
+      if (!res.ok) throw new Error('Not found');
+      profileData = await res.json();
+      renderProfile(profileData);
+    } catch(e) {
+      document.getElementById('loadingState').innerHTML =
+        '<p style="color:#e76f51;padding:80px 0;text-align:center;">Profile not found.</p>';
+    }
+  }
+
+  function photoUrl(p) {
+    if (!p) return null;
+    return p.startsWith('http') ? p : '/' + p;
+  }
+
+  function renderProfile(data) {
+    const { user, listings, is_owner, insights } = data;
+
+    const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', {month:'long', year:'numeric'}) : '';
+    const avatarContent = user.profile_picture
+      ? `<img src="${photoUrl(user.profile_picture)}" alt="${user.name}"/>`
+      : (user.name||'?')[0].toUpperCase();
+
+    const insightsHTML = is_owner && insights ? `
+      <div class="insights-strip">
+        <div class="insight-card">
+          <div class="insight-icon">📋</div>
+          <div class="insight-value">${insights.total_listings}</div>
+          <div class="insight-label">Listings</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-icon">👁</div>
+          <div class="insight-value">${insights.total_views}</div>
+          <div class="insight-label">Total Views</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-icon">💬</div>
+          <div class="insight-value">${insights.total_messages}</div>
+          <div class="insight-label">Messages Received</div>
+        </div>
+      </div>` : '';
+
+    const listingsHTML = listings.length === 0
+      ? `<div class="empty"><div class="empty-icon">🏠</div><p>No active listings yet.</p></div>`
+      : listings.map(l => {
+          const photo = l.photos && l.photos.length > 0 ? l.photos[0] : null;
+          const imgHTML = photo
+            ? `<img class="card-img" src="${photoUrl(photo)}" alt="${l.title}" loading="lazy"/>`
+            : `<div class="card-placeholder">🏠</div>`;
+          const insightBar = is_owner
+            ? `<div class="card-insights"><span>👁 ${l.views || 0} views</span><span>💬 ${l.msg_count || 0} messages</span></div>`
+            : '';
+          const statusBadge = is_owner
+            ? `<span class="card-status status-${l.status}">${l.status === 'approved' ? '✅ Live' : l.status === 'pending' ? '⏳ Pending' : '❌ Rejected'}</span>`
+            : '';
+          return `
+            <a class="listing-card" href="/listing/${l.id}">
+              <div class="card-img-wrap">${imgHTML}</div>
+              <div class="card-body">
+                <div class="card-title">${l.title}</div>
+                <div class="card-meta">📍 ${l.area} · ${l.apartment_type}</div>
+                <div class="card-rent">${l.rent} JD<span style="font-size:11px;font-weight:500;color:var(--muted);">/month</span></div>
+                ${statusBadge}
+              </div>
+              ${insightBar}
+            </a>`;
+        }).join('');
+
+    document.getElementById('profileContent').innerHTML = `
+      <div class="profile-hero">
+        <div class="avatar-wrap">
+          <div class="avatar">${avatarContent}</div>
+        </div>
+      </div>
+      <div class="profile-outer">
+        <div class="profile-card" style="text-align:center;">
+          <h1 class="profile-name">${user.name}</h1>
+          <p class="profile-username" style="color:var(--muted);">@${user.username || user.name.toLowerCase().replace(' ','.')}</p>
+          <p class="profile-joined">📅 Member since ${joinedDate}</p>
+          ${is_owner ? `<button class="edit-profile-btn" onclick="openSettings()">✏️ Edit Profile</button>` : ''}
+          ${insightsHTML}
+        </div>
+        <div>
+          <div class="section-title">${is_owner ? 'My Listings' : user.name.split(' ')[0] + "'s Listings"} <span style="font-size:14px;color:var(--muted);font-weight:500;">(${listings.length})</span></div>
+          <div class="listings-grid">${listingsHTML}</div>
+        </div>
+      </div>`;
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('profileContent').style.display = 'block';
+    document.title = `${user.name} — Rafeeq`;
+  }
+
+  // ── SETTINGS ──────────────────────────────────────────────────
+  function openSettings() {
+    if (!currentUser) return;
+    document.getElementById('settingsName').value  = currentUser.name  || '';
+    document.getElementById('settingsPhone').value = currentUser.phone || '';
+    document.getElementById('settingsMsg').textContent = '';
+    const preview = document.getElementById('settingsAvatarPreview');
+    if (currentUser.profile_picture) {
+      preview.innerHTML = `<img src="${photoUrl(currentUser.profile_picture)}" style="width:100%;height:100%;object-fit:cover;"/>`;
+    } else {
+      preview.textContent = (currentUser.name||'?')[0].toUpperCase();
+    }
+    document.getElementById('settingsModal').classList.add('open');
+  }
+
+  function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+
+  function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('settingsAvatarPreview').innerHTML =
+          `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;"/>`;
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  async function saveSettings() {
+    const name  = document.getElementById('settingsName').value.trim();
+    const phone = document.getElementById('settingsPhone').value.trim();
+    const pic   = document.getElementById('settingsPicInput').files[0];
+    const msgEl = document.getElementById('settingsMsg');
+    if (!name) { msgEl.style.color='#e76f51'; msgEl.textContent='Name is required.'; return; }
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('phone', phone);
+    if (pic) formData.append('profile_picture', pic);
+    try {
+      const res  = await fetch('/api/users/me', { method:'PUT', body:formData });
+      const data = await res.json();
+      if (res.ok) {
+        msgEl.style.color='#2d6a4f'; msgEl.textContent='✅ Saved!';
+        currentUser.name  = name;
+        currentUser.phone = phone;
+        setTimeout(() => { closeSettings(); loadProfile(); buildNavbar(); }, 1200);
+      } else { msgEl.style.color='#e76f51'; msgEl.textContent=data.error; }
+    } catch(e) { msgEl.style.color='#e76f51'; msgEl.textContent='Something went wrong.'; }
+  }
+
+  // ── INIT ──────────────────────────────────────────────────────
+  checkAuth().then(() => loadProfile());
+</script>
+<script>
+  if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>

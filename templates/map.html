@@ -181,13 +181,19 @@ async function checkAuth() {
         const res = await fetch('/api/me');
         if (res.ok) {
             const user = await res.json();
+            window._currentUser = user;
+            const avatarHTMLm = user.profile_picture
+                ? '<img src="' + (user.profile_picture.startsWith('http') ? user.profile_picture : '/' + user.profile_picture) + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>'
+                : '<span style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">' + (user.name||'?')[0].toUpperCase() + '</span>';
             document.getElementById('navLinks').innerHTML =
                 '<button class="lang-toggle" onclick="toggleLang()"></button>'
+                + '<a href="/messages" class="messages-btn">&#x1F4AC; Messages</a>'
                 + '<div class="profile-dropdown" id="profileDropdown">'
-                + '<button class="profile-btn" onclick="toggleDropdown()">&#x1F464; ' + user.name.split(' ')[0] + ' ▾</button>'
+                + '<button class="profile-btn" onclick="toggleDropdown()">' + avatarHTMLm + ' ' + user.name.split(' ')[0] + ' &#x25BE;</button>'
                 + '<div class="dropdown-menu" id="dropdownMenu">'
+                + '<a href="/profile/' + (user.username || user.name.toLowerCase().replace(/ /g,'.')) + '" class="dropdown-item">&#x1F464; View Profile</a>'
                 + '<a href="/my-listings" class="dropdown-item">&#x1F4CB; My Listings</a>'
-                + '<a href="/messages" class="dropdown-item">&#x1F4AC; Messages</a>'
+                + '<button class="dropdown-item" onclick="openSettings();toggleDropdown()">&#x2699;&#xFE0F; Settings</button>'
                 + '<div class="dropdown-divider"></div>'
                 + '<button class="dropdown-item danger" onclick="logoutUser()">&#x1F6AA; Logout</button>'
                 + '</div></div>';
@@ -200,6 +206,43 @@ async function checkAuth() {
     } catch(e) {}
 }
 
+function openSettings() {
+    const u = window._currentUser;
+    if (!u) return;
+    document.getElementById('settingsName').value = u.name || '';
+    document.getElementById('settingsPhone').value = u.phone || '';
+    document.getElementById('settingsMsg').textContent = '';
+    const preview = document.getElementById('settingsAvatarPreview');
+    if (u.profile_picture) {
+      const src = u.profile_picture.startsWith('http') ? u.profile_picture : '/' + u.profile_picture;
+      preview.innerHTML = '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover;"/>';
+    } else { preview.textContent = (u.name||'?')[0].toUpperCase(); }
+    document.getElementById('settingsModal').style.display = 'flex';
+}
+function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => { document.getElementById('settingsAvatarPreview').innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;"/>'; };
+      reader.readAsDataURL(input.files[0]);
+    }
+}
+async function saveSettings() {
+    const name=document.getElementById('settingsName').value.trim();
+    const phone=document.getElementById('settingsPhone').value.trim();
+    const pic=document.getElementById('settingsPicInput').files[0];
+    const msgEl=document.getElementById('settingsMsg');
+    if (!name){msgEl.style.color='#e76f51';msgEl.textContent='Name is required.';return;}
+    const fd=new FormData(); fd.append('name',name); fd.append('phone',phone);
+    if (pic) fd.append('profile_picture',pic);
+    try {
+      const res=await fetch('/api/users/me',{method:'PUT',body:fd});
+      const data=await res.json();
+      if (res.ok){msgEl.style.color='#2d6a4f';msgEl.textContent='\u2705 Saved!'; if(window._currentUser){window._currentUser.name=name;window._currentUser.phone=phone;} setTimeout(()=>closeSettings(),1200);}
+      else{msgEl.style.color='#e76f51';msgEl.textContent=data.error;}
+    } catch(e){msgEl.style.color='#e76f51';msgEl.textContent='Something went wrong.';}
+}
+
 function toggleDropdown() {
     document.getElementById('dropdownMenu')?.classList.toggle('open');
 }
@@ -209,6 +252,27 @@ async function logoutUser() {
 
 checkAuth();
 </script>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:20px;padding:32px;width:100%;max-width:460px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <h2 style="font-size:20px;font-weight:800;">&#x2699;&#xFE0F; Account Settings</h2>
+      <button onclick="closeSettings()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;">&#x2715;</button>
+    </div>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div id="settingsAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:#2d6a4f;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;margin:0 auto 12px;overflow:hidden;"></div>
+      <button onclick="document.getElementById('settingsPicInput').click()" style="padding:7px 16px;background:#f0faf4;color:#2d6a4f;border:1px solid #b7e4c7;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">&#x1F4F7; Change Photo</button>
+      <input type="file" id="settingsPicInput" accept="image/*" style="display:none;" onchange="previewAvatar(this)"/>
+    </div>
+    <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Full Name</label>
+    <input id="settingsName" type="text" style="width:100%;padding:11px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:14px;outline:none;"/>
+    <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Phone Number</label>
+    <input id="settingsPhone" type="text" style="width:100%;padding:11px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:20px;outline:none;"/>
+    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Save Changes</button>
+    <p id="settingsMsg" style="font-size:13px;text-align:center;margin-top:12px;min-height:20px;"></p>
+  </div>
+</div>
 <script>
   if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }
 </script>

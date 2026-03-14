@@ -1,18 +1,15 @@
-from werkzeug.utils import secure_filename
-from PIL import Image
-from flask_mail import Mail, Message as MailMessage
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_limiter.util import get_remote_address
-from flask_limiter import Limiter
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask import Flask, request, jsonify, session, render_template, redirect
-import sqlite3
-import bleach
-import secrets
 import os
-import eventlet
-import json
-eventlet.monkey_patch()
+import secrets
+import bleach
+import sqlite3
+from flask import Flask, request, jsonify, session, render_template, redirect
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_mail import Mail, Message as MailMessage
+from PIL import Image
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rafeeq-dev-secret-2026')
@@ -288,11 +285,7 @@ def init_db():
     conn.close()
 
 
-try:
-    init_db()
-    print("Database initialized successfully")
-except Exception as e:
-    print(f"Database init error: {e}")
+init_db()
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -301,12 +294,7 @@ except Exception as e:
 
 @app.route('/')
 def index():
-    return render_template('index.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
-
-
-@app.route('/map')
-def map_page():
-    return render_template('map.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
+    return render_template('index.html')
 
 
 @app.route('/sw.js')
@@ -346,23 +334,70 @@ def signup():
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
         hashed_password = generate_password_hash(password)
+        verify_token = secrets.token_urlsafe(32)
 
         conn = get_db()
         cursor = conn.cursor()
+        username = generate_username(name, cursor)
         cursor.execute(q('''
-            INSERT INTO users (name, email, password, gender, phone, is_verified)
-            VALUES (?, ?, ?, ?, ?, 1)
-        '''), (name, email, hashed_password, gender, phone))
+            INSERT INTO users (name, email, password, gender, phone, username, is_verified, verify_token)
+            VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+        '''), (name, email, hashed_password, gender, phone, username, verify_token))
         conn.commit()
         conn.close()
 
-        return jsonify({'message': 'Account created successfully! You can now log in.'}), 201
+        try:
+            verify_url = f"https://rafeeq-production.up.railway.app/api/verify-email/{verify_token}"
+            msg = MailMessage(
+                subject="Verify your Rafeeq account",
+                recipients=[email],
+                html=f"""
+                <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+                    <h2 style="color:#2d6a4f;">Welcome to Rafeeq!</h2>
+                    <p>Please verify your email to activate your account.</p>
+                    <a href="{verify_url}"
+                       style="background:#2d6a4f;color:white;padding:12px 24px;
+                              text-decoration:none;border-radius:8px;display:inline-block;">
+                        Verify My Email
+                    </a>
+                </div>"""
+            )
+            mail.send(msg)
+        except Exception as mail_error:
+            print(f"Email send failed: {mail_error}")
+
+        return jsonify({'message': 'Account created. Please check your email to verify.'}), 201
 
     except Exception as e:
         print(f"Signup error: {e}")
         if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
             return jsonify({'error': 'An account with this email already exists'}), 409
         return jsonify({'error': 'Something went wrong. Please try again.'}), 500
+
+
+@app.route('/api/verify-email/<token>', methods=['GET'])
+def verify_email(token):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT id FROM users WHERE verify_token = ?'), (token,))
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Invalid or expired verification link'}), 400
+
+        user_id = row[0] if DATABASE_URL else row['id']
+        cursor.execute(
+            q('UPDATE users SET is_verified = 1, verify_token = NULL WHERE id = ?'), (user_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Email verified. You can now log in.'}), 200
+
+    except Exception as e:
+        print(f"Verify email error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
 
 
 @app.route('/api/login', methods=['POST'])
@@ -397,7 +432,14 @@ def login():
 
         return jsonify({
             'message': 'Logged in successfully',
-            'user': {'id': user['id'], 'name': user['name'], 'gender': user['gender']}
+            'user': {
+                'id':              user['id'],
+                'name':            user['name'],
+                'gender':          user['gender'],
+                'username':        user.get('username') or user['name'].lower().replace(' ', '.'),
+                'phone':           user.get('phone') or '',
+                'profile_picture': user.get('profile_picture') or ''
+            }
         }), 200
 
     except Exception as e:
@@ -415,16 +457,33 @@ def logout():
 def me():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
-    return jsonify({
-        'id':     session['user_id'],
-        'name':   session['user_name'],
-        'gender': session['user_gender']
-    }), 200
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT id, name, gender, phone, username, profile_picture FROM users WHERE id = ?'), (session['user_id'],))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            session.clear()
+            return jsonify({'error': 'Not logged in'}), 401
+        user = row_to_dict(cursor, row)
+        return jsonify({
+            'id':              user['id'],
+            'name':            user['name'],
+            'gender':          user['gender'],
+            'phone':           user.get('phone', '') or '',
+            'username':        user.get('username') or user['name'].lower().replace(' ', '.'),
+            'profile_picture': user.get('profile_picture', '') or ''
+        }), 200
+    except Exception as e:
+        print(f"Me error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
 
 # ══════════════════════════════════════════════════════════════════
 # LISTING ROUTES
 # ══════════════════════════════════════════════════════════════════
-
 
 @app.route('/api/listings', methods=['POST'])
 def create_listing():
@@ -432,19 +491,17 @@ def create_listing():
         if 'user_id' not in session:
             return jsonify({'error': 'Login required'}), 401
 
-        # Now accepts multipart/form-data instead of JSON
-        title = sanitize(request.form.get('title', ''))
-        description = sanitize(request.form.get('description', ''))
-        apartment_type = request.form.get('apartment_type', '').strip().lower()
-        gender_preference = request.form.get(
-            'gender_preference', '').strip().lower()
-        rent = request.form.get('rent')
-        area = sanitize(request.form.get('area', ''))
-        latitude = request.form.get('latitude')
-        longitude = request.form.get('longitude')
-        rooms = request.form.get('rooms')
-        tags = json.loads(request.form.get('tags', '[]'))
-        id_photo_file = request.files.get('id_photo')
+        data = request.get_json()
+        title = sanitize(data.get('title', ''))
+        description = sanitize(data.get('description', ''))
+        apartment_type = data.get('apartment_type', '').strip().lower()
+        gender_preference = data.get('gender_preference', '').strip().lower()
+        rent = data.get('rent')
+        area = sanitize(data.get('area', ''))
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        rooms = data.get('rooms')
+        tags = data.get('tags', [])
 
         if not all([title, apartment_type, gender_preference, rent, area]):
             return jsonify({'error': 'Title, type, gender preference, rent, and area are required'}), 400
@@ -452,16 +509,6 @@ def create_listing():
             return jsonify({'error': 'apartment_type must be shared or private'}), 400
         if gender_preference not in ('male', 'female', 'any'):
             return jsonify({'error': 'gender_preference must be male, female, or any'}), 400
-        if not id_photo_file:
-            return jsonify({'error': 'National ID photo is required'}), 400
-        if not allowed_file(id_photo_file.filename):
-            return jsonify({'error': 'ID photo must be a JPG, PNG, or WEBP image'}), 400
-
-        # Save ID photo
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        id_filename = f"id_{session['user_id']}_{secrets.token_hex(8)}.{id_photo_file.filename.rsplit('.', 1)[1].lower()}"
-        id_path = os.path.join(UPLOAD_FOLDER, id_filename)
-        id_photo_file.save(id_path)
 
         conn = get_db()
         cursor = conn.cursor()
@@ -470,26 +517,20 @@ def create_listing():
             cursor.execute('''
                 INSERT INTO listings
                     (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status, id_photo)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
+                     rent, area, latitude, longitude, rooms, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
                 RETURNING id
             ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area,
-                  float(latitude) if latitude else None,
-                  float(longitude) if longitude else None,
-                  int(rooms) if rooms else None, id_path))
+                  gender_preference, rent, area, latitude, longitude, rooms))
             listing_id = cursor.fetchone()[0]
         else:
             cursor.execute('''
                 INSERT INTO listings
                     (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status, id_photo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                     rent, area, latitude, longitude, rooms, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
             ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area,
-                  float(latitude) if latitude else None,
-                  float(longitude) if longitude else None,
-                  int(rooms) if rooms else None, id_path))
+                  gender_preference, rent, area, latitude, longitude, rooms))
             listing_id = cursor.lastrowid
 
         for tag in tags:
@@ -505,125 +546,6 @@ def create_listing():
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
-@app.route('/my-listings')
-def my_listings_page():
-    return render_template('my_listings.html')
-
-
-@app.route('/api/my-listings', methods=['GET'])
-def get_my_listings():
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('''
-            SELECT l.*, u.name AS owner_name
-            FROM listings l
-            JOIN users u ON l.user_id = u.id
-            WHERE l.user_id = ?
-            ORDER BY l.created_at DESC
-        '''), (session['user_id'],))
-        listings = rows_to_dicts(cursor, cursor.fetchall())
-        # Attach photos and tags
-        if listings:
-            ids = [l['id'] for l in listings]
-            placeholders = ','.join(
-                ['?' if not DATABASE_URL else '%s'] * len(ids))
-            cursor.execute(
-                f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({placeholders})', ids)
-            photos = {}
-            for row in cursor.fetchall():
-                photos.setdefault(row[0], []).append(row[1])
-            cursor.execute(
-                f'SELECT listing_id, tag FROM listing_tags WHERE listing_id IN ({placeholders})', ids)
-            tags = {}
-            for row in cursor.fetchall():
-                tags.setdefault(row[0], []).append(row[1])
-            for l in listings:
-                l['photos'] = photos.get(l['id'], [])
-                l['tags'] = tags.get(l['id'], [])
-        conn.close()
-        return jsonify(listings), 200
-    except Exception as e:
-        print(f"My listings error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/listings/<int:listing_id>/delete-own', methods=['POST'])
-def delete_own_listing(listing_id):
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            q('SELECT user_id FROM listings WHERE id = ?'), (listing_id,))
-        row = cursor.fetchone()
-        if not row:
-            return jsonify({'error': 'Listing not found'}), 404
-        if row[0] != session['user_id']:
-            return jsonify({'error': 'Unauthorized'}), 403
-        cursor.execute(
-            q('DELETE FROM listing_tags   WHERE listing_id = ?'), (listing_id,))
-        cursor.execute(
-            q('DELETE FROM listing_photos WHERE listing_id = ?'), (listing_id,))
-        cursor.execute(
-            q('DELETE FROM messages       WHERE listing_id = ?'), (listing_id,))
-        cursor.execute(
-            q('DELETE FROM listings       WHERE id = ?'),         (listing_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Deleted'}), 200
-    except Exception as e:
-        print(f"Delete own listing error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/listings/<int:listing_id>', methods=['PUT'])
-def update_listing(listing_id):
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            q('SELECT user_id FROM listings WHERE id = ?'), (listing_id,))
-        row = cursor.fetchone()
-        if not row:
-            return jsonify({'error': 'Listing not found'}), 404
-        if row[0] != session['user_id']:
-            return jsonify({'error': 'Unauthorized'}), 403
-        data = request.get_json()
-        title = sanitize(data.get('title', ''))
-        description = sanitize(data.get('description', ''))
-        apartment_type = data.get('apartment_type', '').strip().lower()
-        gender_preference = data.get('gender_preference', '').strip().lower()
-        rent = data.get('rent')
-        area = sanitize(data.get('area', ''))
-        rooms = data.get('rooms')
-        tags = data.get('tags', [])
-        if not all([title, apartment_type, gender_preference, rent, area]):
-            return jsonify({'error': 'Required fields missing'}), 400
-        cursor.execute(q('''
-            UPDATE listings SET title=?, description=?, apartment_type=?,
-            gender_preference=?, rent=?, area=?, rooms=?
-            WHERE id=?
-        '''), (title, description, apartment_type, gender_preference,
-               rent, area, rooms, listing_id))
-        cursor.execute(
-            q('DELETE FROM listing_tags WHERE listing_id = ?'), (listing_id,))
-        for tag in tags:
-            cursor.execute(q('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)'),
-                           (listing_id, sanitize(tag)))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Updated'}), 200
-    except Exception as e:
-        print(f"Update listing error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
 @app.route('/api/listings', methods=['GET'])
 def get_listings():
     try:
@@ -631,7 +553,6 @@ def get_listings():
         apt_type = request.args.get('type')
         max_rent = request.args.get('max_rent')
         sort = request.args.get('sort', 'latest')
-        area = request.args.get('area')
 
         query = '''
             SELECT l.*, u.name AS owner_name
@@ -650,9 +571,6 @@ def get_listings():
         if max_rent:
             query += q(' AND l.rent <= ?')
             params.append(float(max_rent))
-        if area:
-            query += q(' AND l.area = ?')
-            params.append(area)
 
         if sort == 'price_asc':
             query += ' ORDER BY l.rent ASC'
@@ -666,28 +584,16 @@ def get_listings():
         cursor.execute(query, params)
         listings = rows_to_dicts(cursor, cursor.fetchall())
 
-        ids = [l['id'] for l in listings]
-        tags_map = {}
-        photos_map = {}
-        if ids:
-            placeholders = ','.join(
-                [q('?')[0] for _ in ids]) if not DATABASE_URL else ','.join(['%s']*len(ids))
-            cursor.execute(
-                f'SELECT listing_id, tag FROM listing_tags WHERE listing_id IN ({placeholders})', ids)
-            for r in cursor.fetchall():
-                lid, tag = (r[0], r[1]) if DATABASE_URL else (
-                    r['listing_id'], r['tag'])
-                tags_map.setdefault(lid, []).append(tag)
-            cursor.execute(
-                f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({placeholders})', ids)
-            for r in cursor.fetchall():
-                lid, photo = (r[0], r[1]) if DATABASE_URL else (
-                    r['listing_id'], r['photo_path'])
-                photos_map.setdefault(lid, []).append(photo)
         result = []
         for listing in listings:
-            listing['tags'] = tags_map.get(listing['id'], [])
-            listing['photos'] = photos_map.get(listing['id'], [])
+            cursor.execute(
+                q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing['id'],))
+            listing['tags'] = [r[0] if DATABASE_URL else r['tag']
+                               for r in cursor.fetchall()]
+            cursor.execute(
+                q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing['id'],))
+            listing['photos'] = [r[0] if DATABASE_URL else r['photo_path']
+                                 for r in cursor.fetchall()]
             result.append(listing)
 
         conn.close()
@@ -705,7 +611,8 @@ def get_listing(listing_id):
         cursor = conn.cursor()
         cursor.execute(q('''
             SELECT l.*, u.name AS owner_name, u.phone AS owner_phone,
-                   u.gender AS owner_gender, u.id AS owner_id
+                   u.gender AS owner_gender, u.id AS owner_id,
+                   u.username AS owner_username
             FROM listings l
             JOIN users u ON l.user_id = u.id
             WHERE l.id = ?
@@ -715,6 +622,11 @@ def get_listing(listing_id):
         if not row:
             conn.close()
             return jsonify({'error': 'Listing not found'}), 404
+
+        # Increment view counter
+        cursor.execute(
+            q('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?'), (listing_id,))
+        conn.commit()
 
         d = row_to_dict(cursor, row)
         cursor.execute(
@@ -760,10 +672,11 @@ def report_listing(listing_id):
     except Exception as e:
         print(f"Report error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
+
+
 # ══════════════════════════════════════════════════════════════════
 # MESSAGING ROUTES
 # ══════════════════════════════════════════════════════════════════
-
 
 @app.route('/api/conversations', methods=['GET'])
 def get_conversations():
@@ -946,8 +859,118 @@ def handle_leave(data):
 
 
 # ══════════════════════════════════════════════════════════════════
+# PROFILE ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/profile/<username>')
+def profile_page(username):
+    return render_template('profile.html')
+
+
+@app.route('/api/profile/<username>', methods=['GET'])
+def get_profile(username):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT id, name, username, profile_picture, created_at FROM users WHERE username = ?'), (username,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+        user = row_to_dict(cursor, row)
+        is_owner = 'user_id' in session and session['user_id'] == user['id']
+
+        # Get listings — owner sees all, visitors see approved only
+        if is_owner:
+            cursor.execute(q('''
+                SELECT id, title, rent, area, apartment_type, gender_preference,
+                       rooms, status, views, created_at
+                FROM listings WHERE user_id = ? ORDER BY created_at DESC
+            '''), (user['id'],))
+        else:
+            cursor.execute(q('''
+                SELECT id, title, rent, area, apartment_type, gender_preference,
+                       rooms, status, views, created_at
+                FROM listings WHERE user_id = ? AND status = 'approved' ORDER BY created_at DESC
+            '''), (user['id'],))
+
+        listings = rows_to_dicts(cursor, cursor.fetchall())
+
+        if listings:
+            ids = [l['id'] for l in listings]
+            ph = ','.join(['%s' if DATABASE_URL else '?'] * len(ids))
+            cursor.execute(
+                f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({ph}) ORDER BY id', ids)
+            photos = {}
+            for r in cursor.fetchall():
+                lid, path = (r[0], r[1]) if DATABASE_URL else (
+                    r['listing_id'], r['photo_path'])
+                photos.setdefault(lid, []).append(path)
+            for l in listings:
+                l['photos'] = photos.get(l['id'], [])
+
+        insights = None
+        if is_owner and listings:
+            ids = [l['id'] for l in listings]
+            ph = ','.join(['%s' if DATABASE_URL else '?'] * len(ids))
+            cursor.execute(
+                f'SELECT listing_id, COUNT(DISTINCT sender_id) as cnt FROM messages WHERE listing_id IN ({ph}) AND sender_id != {"%s" if DATABASE_URL else "?"} GROUP BY listing_id',
+                ids + [user['id']]
+            )
+            msg_counts = {r[0]: r[1] for r in cursor.fetchall()}
+            for l in listings:
+                l['msg_count'] = msg_counts.get(l['id'], 0)
+            insights = {
+                'total_listings': len(listings),
+                'total_views':    sum(l.get('views') or 0 for l in listings),
+                'total_messages': sum(msg_counts.values()),
+            }
+
+        conn.close()
+        return jsonify({'user': user, 'listings': listings, 'is_owner': is_owner, 'insights': insights}), 200
+    except Exception as e:
+        print(f"Profile error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/users/me', methods=['PUT'])
+def update_user_profile():
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+        name = sanitize(request.form.get('name', '').strip())
+        phone = sanitize(request.form.get('phone', '').strip())
+        pic = request.files.get('profile_picture')
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+        pic_path = None
+        if pic and allowed_file(pic.filename):
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            ext = pic.filename.rsplit('.', 1)[1].lower()
+            filename = f"avatar_{session['user_id']}_{secrets.token_hex(6)}.{ext}"
+            pic_path = os.path.join(UPLOAD_FOLDER, filename)
+            pic.save(pic_path)
+        conn = get_db()
+        cursor = conn.cursor()
+        if pic_path:
+            cursor.execute(q('UPDATE users SET name=?, phone=?, profile_picture=? WHERE id=?'),
+                           (name, phone, pic_path, session['user_id']))
+        else:
+            cursor.execute(q('UPDATE users SET name=?, phone=? WHERE id=?'),
+                           (name, phone, session['user_id']))
+        session['user_name'] = name
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Updated'}), 200
+    except Exception as e:
+        print(f"Update profile error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+# ══════════════════════════════════════════════════════════════════
 # ADMIN ROUTES
 # ══════════════════════════════════════════════════════════════════
+
 
 @app.route('/api/admin/listings/pending', methods=['GET'])
 def get_pending_listings():
@@ -993,61 +1016,6 @@ def reject_listing(listing_id):
         conn.close()
         return jsonify({'message': f'Listing {listing_id} rejected'}), 200
     except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/listings/approved', methods=['GET'])
-def get_approved_listings():
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-        date_from = request.args.get('date_from', '')
-        date_to = request.args.get('date_to', '')
-        query = '''
-            SELECT l.*, u.name AS owner_name, u.email AS owner_email
-            FROM listings l
-            JOIN users u ON l.user_id = u.id
-            WHERE l.status = 'approved'
-        '''
-        params = []
-        if date_from:
-            query += q(' AND l.created_at >= ?')
-            params.append(date_from)
-        if date_to:
-            query += q(' AND l.created_at <= ?')
-            params.append(date_to + ' 23:59:59')
-        query += ' ORDER BY l.created_at DESC'
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        listings = rows_to_dicts(cursor, cursor.fetchall())
-        conn.close()
-        return jsonify(listings), 200
-    except Exception as e:
-        print(f"Get approved listings error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/listings/<int:listing_id>/delete', methods=['POST'])
-def delete_listing(listing_id):
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            q('DELETE FROM listing_tags WHERE listing_id = ?'),   (listing_id,))
-        cursor.execute(
-            q('DELETE FROM listing_photos WHERE listing_id = ?'), (listing_id,))
-        cursor.execute(
-            q('DELETE FROM messages WHERE listing_id = ?'),       (listing_id,))
-        cursor.execute(q('DELETE FROM listings WHERE id = ?'),
-                       (listing_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': f'Listing {listing_id} deleted'}), 200
-    except Exception as e:
-        print(f"Delete listing error: {e}")
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
