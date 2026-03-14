@@ -26,6 +26,16 @@
     .messages-nav-btn:hover { border-color: #2d6a4f; background: #f0faf4; }
     .lang-toggle { background: none; border: 1px solid #e8e4dc; border-radius: 8px; padding: 6px 12px; font-family: 'Tajawal', sans-serif; font-size: 0.85rem; cursor: pointer; transition: border-color 0.2s; }
     .lang-toggle:hover { border-color: #2d6a4f; }
+    .profile-dropdown { position: relative; }
+    .profile-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #f8f7f4; border: 1px solid #e8e4dc; border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: #1a1a2e; transition: all 0.2s; }
+    .profile-btn:hover { border-color: #2d6a4f; background: #f0faf4; }
+    .dropdown-menu { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border: 1px solid #e8e4dc; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 180px; overflow: hidden; z-index: 200; }
+    .dropdown-menu.open { display: block; }
+    .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-size: 14px; font-weight: 500; color: #1a1a2e; cursor: pointer; transition: background 0.15s; text-decoration: none; border: none; background: none; width: 100%; font-family: 'Tajawal', sans-serif; }
+    .dropdown-item:hover { background: #f8f7f4; }
+    .dropdown-divider { height: 1px; background: #e8e4dc; margin: 4px 0; }
+    .dropdown-item.danger { color: #e76f51; }
+    .dropdown-item.danger:hover { background: #fff5f0; }
     .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 64px; }
     .loading { text-align: center; padding: 80px 0; color: #888; font-size: 16px; }
     .loading-spinner { width: 40px; height: 40px; border: 3px solid #e8e4dc; border-top: 3px solid #2d6a4f; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
@@ -168,9 +178,19 @@
         currentUser = await res.json();
         document.getElementById('navbarRight').innerHTML =
           '<button class="lang-toggle" onclick="toggleLang()"></button>'
-          + '<a href="/messages" class="messages-nav-btn" data-i18n="nav_messages">&#x1F4AC; Messages</a>'
-          + '<span style="font-weight:600;color:#2d6a4f;font-size:0.9rem;">&#x1F44B; ' + currentUser.name.split(' ')[0] + '</span>';
+          + '<div class="profile-dropdown" id="profileDropdown">'
+          + '<button class="profile-btn" onclick="toggleDropdown()">&#x1F464; ' + currentUser.name.split(' ')[0] + ' ▾</button>'
+          + '<div class="dropdown-menu" id="dropdownMenu">'
+          + '<a href="/my-listings" class="dropdown-item">&#x1F4CB; My Listings</a>'
+          + '<a href="/messages" class="dropdown-item" data-i18n="nav_messages">&#x1F4AC; Messages</a>'
+          + '<div class="dropdown-divider"></div>'
+          + '<button class="dropdown-item danger" onclick="logoutUser()" data-i18n="nav_logout">&#x1F6AA; Logout</button>'
+          + '</div></div>';
         applyLang();
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('profileDropdown');
+            if (dd && !dd.contains(e.target)) document.getElementById('dropdownMenu')?.classList.remove('open');
+        });
       } else {
         document.getElementById('navbarRight').innerHTML =
           '<button class="lang-toggle" onclick="toggleLang()"></button>'
@@ -372,6 +392,13 @@
       if (res.ok) { closeReport(); alert('Report submitted. Thank you.'); }
       else alert(data.error || 'Failed to submit report.');
     } catch (e) { alert('Something went wrong. Please try again.'); }
+  }
+
+  function toggleDropdown() {
+    document.getElementById('dropdownMenu')?.classList.toggle('open');
+  }
+  async function logoutUser() {
+    await fetch('/api/logout', { method: 'POST' }); window.location.href = '/';
   }
 
   checkAuth().then(() => loadListing());

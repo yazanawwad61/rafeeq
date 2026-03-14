@@ -505,6 +505,125 @@ def create_listing():
         return jsonify({'error': 'Something went wrong.'}), 500
 
 
+@app.route('/my-listings')
+def my_listings_page():
+    return render_template('my_listings.html')
+
+
+@app.route('/api/my-listings', methods=['GET'])
+def get_my_listings():
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(q('''
+            SELECT l.*, u.name AS owner_name
+            FROM listings l
+            JOIN users u ON l.user_id = u.id
+            WHERE l.user_id = ?
+            ORDER BY l.created_at DESC
+        '''), (session['user_id'],))
+        listings = rows_to_dicts(cursor, cursor.fetchall())
+        # Attach photos and tags
+        if listings:
+            ids = [l['id'] for l in listings]
+            placeholders = ','.join(
+                ['?' if not DATABASE_URL else '%s'] * len(ids))
+            cursor.execute(
+                f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({placeholders})', ids)
+            photos = {}
+            for row in cursor.fetchall():
+                photos.setdefault(row[0], []).append(row[1])
+            cursor.execute(
+                f'SELECT listing_id, tag FROM listing_tags WHERE listing_id IN ({placeholders})', ids)
+            tags = {}
+            for row in cursor.fetchall():
+                tags.setdefault(row[0], []).append(row[1])
+            for l in listings:
+                l['photos'] = photos.get(l['id'], [])
+                l['tags'] = tags.get(l['id'], [])
+        conn.close()
+        return jsonify(listings), 200
+    except Exception as e:
+        print(f"My listings error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/listings/<int:listing_id>/delete-own', methods=['POST'])
+def delete_own_listing(listing_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT user_id FROM listings WHERE id = ?'), (listing_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Listing not found'}), 404
+        if row[0] != session['user_id']:
+            return jsonify({'error': 'Unauthorized'}), 403
+        cursor.execute(
+            q('DELETE FROM listing_tags   WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM listing_photos WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM messages       WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM listings       WHERE id = ?'),         (listing_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Deleted'}), 200
+    except Exception as e:
+        print(f"Delete own listing error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/listings/<int:listing_id>', methods=['PUT'])
+def update_listing(listing_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT user_id FROM listings WHERE id = ?'), (listing_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Listing not found'}), 404
+        if row[0] != session['user_id']:
+            return jsonify({'error': 'Unauthorized'}), 403
+        data = request.get_json()
+        title = sanitize(data.get('title', ''))
+        description = sanitize(data.get('description', ''))
+        apartment_type = data.get('apartment_type', '').strip().lower()
+        gender_preference = data.get('gender_preference', '').strip().lower()
+        rent = data.get('rent')
+        area = sanitize(data.get('area', ''))
+        rooms = data.get('rooms')
+        tags = data.get('tags', [])
+        if not all([title, apartment_type, gender_preference, rent, area]):
+            return jsonify({'error': 'Required fields missing'}), 400
+        cursor.execute(q('''
+            UPDATE listings SET title=?, description=?, apartment_type=?,
+            gender_preference=?, rent=?, area=?, rooms=?
+            WHERE id=?
+        '''), (title, description, apartment_type, gender_preference,
+               rent, area, rooms, listing_id))
+        cursor.execute(
+            q('DELETE FROM listing_tags WHERE listing_id = ?'), (listing_id,))
+        for tag in tags:
+            cursor.execute(q('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)'),
+                           (listing_id, sanitize(tag)))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Updated'}), 200
+    except Exception as e:
+        print(f"Update listing error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
 @app.route('/api/listings', methods=['GET'])
 def get_listings():
     try:

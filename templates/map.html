@@ -28,6 +28,16 @@
         .btn-outline:hover { background:var(--accent); color:white; }
         .lang-toggle { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-family:'Tajawal',sans-serif; font-size:0.85rem; cursor:pointer; transition:border-color 0.2s; }
         .lang-toggle:hover { border-color:var(--accent); }
+        .profile-dropdown { position:relative; }
+        .profile-btn { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--bg); border:1px solid var(--border); border-radius:10px; font-family:'Tajawal',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; color:var(--text); transition:all 0.2s; }
+        .profile-btn:hover { border-color:var(--accent); background:#f0faf4; }
+        .dropdown-menu { display:none; position:absolute; top:calc(100% + 8px); right:0; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:180px; overflow:hidden; z-index:200; }
+        .dropdown-menu.open { display:block; }
+        .dropdown-item { display:flex; align-items:center; gap:10px; padding:12px 16px; font-size:14px; font-weight:500; color:var(--text); cursor:pointer; transition:background 0.15s; text-decoration:none; border:none; background:none; width:100%; font-family:'Tajawal',sans-serif; }
+        .dropdown-item:hover { background:var(--bg); }
+        .dropdown-divider { height:1px; background:var(--border); margin:4px 0; }
+        .dropdown-item.danger { color:var(--accent2); }
+        .dropdown-item.danger:hover { background:#fff5f0; }
         .filters-bar {
             position:absolute; top:84px; left:50%; transform:translateX(-50%);
             z-index:50; background:var(--surface); border:1px solid var(--border);
@@ -173,10 +183,28 @@ async function checkAuth() {
             const user = await res.json();
             document.getElementById('navLinks').innerHTML =
                 '<button class="lang-toggle" onclick="toggleLang()"></button>'
-                + '<a href="/" style="color:var(--accent);font-weight:600;font-size:0.9rem;text-decoration:none;">&#x1F44B; ' + user.name.split(' ')[0] + '</a>';
+                + '<div class="profile-dropdown" id="profileDropdown">'
+                + '<button class="profile-btn" onclick="toggleDropdown()">&#x1F464; ' + user.name.split(' ')[0] + ' ▾</button>'
+                + '<div class="dropdown-menu" id="dropdownMenu">'
+                + '<a href="/my-listings" class="dropdown-item">&#x1F4CB; My Listings</a>'
+                + '<a href="/messages" class="dropdown-item">&#x1F4AC; Messages</a>'
+                + '<div class="dropdown-divider"></div>'
+                + '<button class="dropdown-item danger" onclick="logoutUser()">&#x1F6AA; Logout</button>'
+                + '</div></div>';
             applyLang();
+            document.addEventListener('click', (e) => {
+                const dd = document.getElementById('profileDropdown');
+                if (dd && !dd.contains(e.target)) document.getElementById('dropdownMenu')?.classList.remove('open');
+            });
         }
     } catch(e) {}
+}
+
+function toggleDropdown() {
+    document.getElementById('dropdownMenu')?.classList.toggle('open');
+}
+async function logoutUser() {
+    await fetch('/api/logout', { method: 'POST' }); window.location.href = '/';
 }
 
 checkAuth();
