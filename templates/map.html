@@ -130,7 +130,7 @@ async function loadListings() {
 
 function getPhotoUrl(photo) {
     if (!photo) return null;
-    return photo.startsWith('http') ? photo : '/' + photo;
+    return (photo.startsWith('http') || photo.startsWith('data:')) ? photo : '/' + photo;
 }
 
 function renderMarkers(listings) {

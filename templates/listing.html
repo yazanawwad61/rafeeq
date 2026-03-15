@@ -218,7 +218,7 @@
   }
 
   function photoUrl(p) {
-    return p.startsWith('http') ? p : '/' + p;
+    return (p.startsWith('http') || p.startsWith('data:')) ? p : '/' + p;
   }
 
   function renderListing(l) {

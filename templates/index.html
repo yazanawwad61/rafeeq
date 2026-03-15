@@ -344,7 +344,7 @@ function renderGrid(listings) {
     grid.innerHTML = listings.map(l => {
         const photo = (l.photos && l.photos.length > 0) ? l.photos[0] : null;
         const imgHTML = photo
-            ? '<img class="card-img" src="' + (photo.startsWith('http') ? photo : '/' + photo) + '" alt="' + l.title + '" loading="lazy"/>'
+            ? '<img class="card-img" src="' + (photo.startsWith('http') || photo.startsWith('data:') ? photo : '/' + photo) + '" alt="' + l.title + '" loading="lazy"/>'
             : '<div class="card-img-placeholder">&#x1F3E0;</div>';
         const genderLabel = l.gender_preference === 'male' ? t('males_only') : l.gender_preference === 'female' ? t('females_only') : t('any_gender');
         const typeLabel   = l.apartment_type === 'shared' ? t('type_shared') : t('type_private');
