@@ -210,7 +210,7 @@
 
   function photoUrl(p) {
     if (!p) return null;
-    return p.startsWith('http') ? p : '/' + p;
+    return (p.startsWith('http') || p.startsWith('data:')) ? p : '/' + p;
   }
 
   function renderProfile(data) {
