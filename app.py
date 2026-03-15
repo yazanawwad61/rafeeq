@@ -105,7 +105,7 @@ def init_db():
                 password TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 phone TEXT,
-                profile_pic TEXT,
+                profile_picture TEXT,
                 is_verified INTEGER DEFAULT 0,
                 verify_token TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -194,7 +194,7 @@ def init_db():
                 password TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 phone TEXT,
-                profile_pic TEXT,
+                profile_picture TEXT,
                 is_verified INTEGER DEFAULT 0,
                 verify_token TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
