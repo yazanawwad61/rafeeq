@@ -170,7 +170,7 @@
   function buildNavbar() {
     if (!currentUser) return;
     const avatarHTML = currentUser.profile_picture
-      ? `<img src="${currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>`
+      ? `<img src="${currentUser.profile_picture.startsWith('http') || currentUser.profile_picture.startsWith('data:') ? currentUser.profile_picture : '/' + currentUser.profile_picture}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>`
       : `<span style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${(currentUser.name||'?')[0].toUpperCase()}</span>`;
     document.getElementById('navLinks').innerHTML =
       '<button class="lang-toggle" onclick="toggleLang()"></button>'
@@ -299,7 +299,7 @@
     document.getElementById('settingsMsg').textContent = '';
     const preview = document.getElementById('settingsAvatarPreview');
     if (currentUser.profile_picture) {
-      preview.innerHTML = `<img src="${photoUrl(currentUser.profile_picture)}" style="width:100%;height:100%;object-fit:cover;"/>`;
+      preview.innerHTML = `<img src="${currentUser.profile_picture}" style="width:100%;height:100%;object-fit:cover;"/>`;
     } else {
       preview.textContent = (currentUser.name||'?')[0].toUpperCase();
     }

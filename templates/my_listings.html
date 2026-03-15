@@ -237,7 +237,7 @@
     if (vpl) vpl.href = '/profile/' + (currentUser.username || currentUser.name.toLowerCase().replace(/ /g,'.'));
     const avatarW = document.getElementById('navAvatarWrap');
     if (avatarW && currentUser.profile_picture) {
-      const src = currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
+      const src = currentUser.profile_picture.startsWith('http') || currentUser.profile_picture.startsWith('data:') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
       avatarW.innerHTML = '<img src="'+src+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>';
     }
     } catch (e) { window.location.href = '/'; }
@@ -381,7 +381,7 @@
     document.getElementById('settingsMsg').textContent = '';
     const preview = document.getElementById('settingsAvatarPreview');
     if (currentUser.profile_picture) {
-      const src = currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
+      const src = currentUser.profile_picture.startsWith('http') || currentUser.profile_picture.startsWith('data:') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
       preview.innerHTML = '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;"/>';
     } else { preview.textContent = (currentUser.name||'?')[0].toUpperCase(); }
     document.getElementById('settingsModal').style.display = 'flex';

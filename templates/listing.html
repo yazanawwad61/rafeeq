@@ -177,7 +177,7 @@
       if (res.ok) {
         currentUser = await res.json();
         const avatarHTML2 = currentUser.profile_picture
-          ? '<img src="' + (currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture) + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>'
+          ? '<img src="' + (currentUser.profile_picture.startsWith('http') || currentUser.profile_picture.startsWith('data:') ? currentUser.profile_picture : '/' + currentUser.profile_picture) + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>'
           : '<span style="width:28px;height:28px;border-radius:50%;background:#2d6a4f;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">' + (currentUser.name||'?')[0].toUpperCase() + '</span>';
         document.getElementById('navbarRight').innerHTML =
           '<button class="lang-toggle" onclick="toggleLang()"></button>'
@@ -406,7 +406,7 @@
     document.getElementById('settingsMsg').textContent = '';
     const preview = document.getElementById('settingsAvatarPreview');
     if (currentUser.profile_picture) {
-      const src = currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
+      const src = currentUser.profile_picture.startsWith('http') || currentUser.profile_picture.startsWith('data:') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
       preview.innerHTML = '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover;"/>';
     } else { preview.textContent = (currentUser.name||'?')[0].toUpperCase(); }
     document.getElementById('settingsModal').style.display = 'flex';

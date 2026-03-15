@@ -1069,21 +1069,23 @@ def update_user_profile():
         if not name:
             return jsonify({'error': 'Name is required'}), 400
         pic_b64 = None
-        if pic and allowed_file(pic.filename):
-            import base64
-            from PIL import Image as PILImage
-            import io
-            # Resize to max 300x300 and convert to base64 for persistent storage
-            img = PILImage.open(pic)
-            img.thumbnail((300, 300), PILImage.LANCZOS)
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-            buf = io.BytesIO()
-            img.save(buf, format='JPEG', quality=85)
-            buf.seek(0)
-            ext_mime = 'image/jpeg'
-            pic_b64 = 'data:' + ext_mime + ';base64,' + \
-                base64.b64encode(buf.read()).decode('utf-8')
+        if pic and pic.filename:
+            try:
+                import base64
+                from PIL import Image as PILImage
+                import io
+                img = PILImage.open(pic)
+                img.thumbnail((400, 400), PILImage.LANCZOS)
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=85)
+                buf.seek(0)
+                pic_b64 = 'data:image/jpeg;base64,' + \
+                    base64.b64encode(buf.read()).decode('utf-8')
+                print(f"Profile picture encoded, length: {len(pic_b64)}")
+            except Exception as img_err:
+                print(f"Profile picture processing error: {img_err}")
         conn = get_db()
         cursor = conn.cursor()
         if pic_b64:
