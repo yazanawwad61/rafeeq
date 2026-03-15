@@ -537,6 +537,17 @@ def create_listing():
             cursor.execute(q('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)'),
                            (listing_id, sanitize(tag)))
 
+        # Save apartment photos (optional, up to 10)
+        photo_files = request.files.getlist('photos')
+        for photo_file in photo_files[:10]:
+            if photo_file and allowed_file(photo_file.filename):
+                ext = photo_file.filename.rsplit('.', 1)[1].lower()
+                photo_name = f"listing_{listing_id}_{secrets.token_hex(6)}.{ext}"
+                photo_path = os.path.join(UPLOAD_FOLDER, photo_name)
+                photo_file.save(photo_path)
+                cursor.execute(q('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)'),
+                               (listing_id, photo_path))
+
         conn.commit()
         conn.close()
         return jsonify({'message': 'Listing submitted for review', 'listing_id': listing_id}), 201
@@ -858,9 +869,92 @@ def handle_leave(data):
     leave_room(room)
 
 
+@app.route('/api/listings/<int:listing_id>/photos', methods=['POST'])
+def upload_listing_photos(listing_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT user_id FROM listings WHERE id = ?'), (listing_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Listing not found'}), 404
+        if row[0] != session['user_id']:
+            conn.close()
+            return jsonify({'error': 'Unauthorized'}), 403
+
+        # Check current count
+        cursor.execute(
+            q('SELECT COUNT(*) FROM listing_photos WHERE listing_id = ?'), (listing_id,))
+        current_count = cursor.fetchone()[0]
+
+        photo_files = request.files.getlist('photos')
+        remaining = max(0, 10 - current_count)
+        saved = 0
+
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        for photo_file in photo_files[:remaining]:
+            if photo_file and allowed_file(photo_file.filename):
+                ext = photo_file.filename.rsplit('.', 1)[1].lower()
+                photo_name = f"listing_{listing_id}_{secrets.token_hex(6)}.{ext}"
+                photo_path = os.path.join(UPLOAD_FOLDER, photo_name)
+                photo_file.save(photo_path)
+                cursor.execute(q('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)'),
+                               (listing_id, photo_path))
+                saved += 1
+
+        conn.commit()
+        conn.close()
+        return jsonify({'message': f'{saved} photo(s) uploaded'}), 201
+    except Exception as e:
+        print(f"Upload photos error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/listings/<int:listing_id>/photos/remove', methods=['POST'])
+def remove_listing_photo(listing_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT user_id FROM listings WHERE id = ?'), (listing_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Listing not found'}), 404
+        if row[0] != session['user_id']:
+            conn.close()
+            return jsonify({'error': 'Unauthorized'}), 403
+
+        data = request.get_json()
+        photo_path = data.get('photo_path', '')
+
+        cursor.execute(q('DELETE FROM listing_photos WHERE listing_id = ? AND photo_path = ?'),
+                       (listing_id, photo_path))
+        conn.commit()
+        conn.close()
+
+        # Try to delete file from disk (not critical if it fails)
+        try:
+            if photo_path and not photo_path.startswith('http') and os.path.exists(photo_path):
+                os.remove(photo_path)
+        except Exception:
+            pass
+
+        return jsonify({'message': 'Photo removed'}), 200
+    except Exception as e:
+        print(f"Remove photo error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
 # ══════════════════════════════════════════════════════════════════
 # PROFILE ROUTES
 # ══════════════════════════════════════════════════════════════════
+
 
 @app.route('/profile/<username>')
 def profile_page(username):

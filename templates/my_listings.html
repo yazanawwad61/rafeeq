@@ -1,1197 +1,546 @@
-import os
-import secrets
-import bleach
-import sqlite3
-from flask import Flask, request, jsonify, session, render_template, redirect
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message as MailMessage
-from PIL import Image
-from werkzeug.utils import secure_filename
-
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'rafeeq-dev-secret-2026')
-
-# ── SOCKETIO ───────────────────────────────────────────────────────
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
-
-# ── RATE LIMITER ───────────────────────────────────────────────────
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=["200 per day", "50 per hour"]
-)
-
-# ── EMAIL CONFIG ───────────────────────────────────────────────────
-app.config['MAIL_SERVER']         = 'smtp.gmail.com'
-app.config['MAIL_PORT']           = 465
-app.config['MAIL_USE_TLS']        = False
-app.config['MAIL_USE_SSL']        = True
-app.config['MAIL_USERNAME']       = 'yazanawwad61@gmail.com'
-app.config['MAIL_PASSWORD']       = os.environ.get('MAIL_PASSWORD', 'bzox obis orfo ackh')
-app.config['MAIL_DEFAULT_SENDER'] = 'yazanawwad61@gmail.com'
-
-mail = Mail(app)
-
-# ── UPLOAD CONFIG ──────────────────────────────────────────────────
-UPLOAD_FOLDER      = 'static/uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
-MAX_IMAGE_WIDTH    = 1200
-
-# ══════════════════════════════════════════════════════════════════
-# DATABASE — PostgreSQL on Railway, SQLite locally
-# ══════════════════════════════════════════════════════════════════
-
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-def get_db():
-    if DATABASE_URL:
-        import psycopg2
-        import psycopg2.extras
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = False
-        return conn
-    else:
-        conn = sqlite3.connect('roommate.db')
-        conn.row_factory = sqlite3.Row
-        return conn
-
-def q(sql):
-    """Convert SQLite ? placeholders to PostgreSQL %s"""
-    if DATABASE_URL:
-        return sql.replace('?', '%s')
-    return sql
-
-def rows_to_dicts(cursor, rows):
-    """Convert rows to list of dicts for both SQLite and PostgreSQL"""
-    if DATABASE_URL:
-        cols = [desc[0] for desc in cursor.description]
-        return [dict(zip(cols, row)) for row in rows]
-    return [dict(row) for row in rows]
-
-def row_to_dict(cursor, row):
-    """Convert single row to dict for both SQLite and PostgreSQL"""
-    if DATABASE_URL:
-        cols = [desc[0] for desc in cursor.description]
-        return dict(zip(cols, row))
-    return dict(row)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def sanitize(text):
-    return bleach.clean(str(text).strip(), tags=[], strip=True)
-
-def init_db():
-    conn   = get_db()
-    cursor = conn.cursor()
-
-    if DATABASE_URL:
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                gender TEXT NOT NULL,
-                phone TEXT,
-                profile_pic TEXT,
-                is_verified INTEGER DEFAULT 0,
-                verify_token TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS listings (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                apartment_type TEXT NOT NULL,
-                gender_preference TEXT NOT NULL,
-                rent REAL NOT NULL,
-                area TEXT NOT NULL,
-                latitude REAL,
-                longitude REAL,
-                rooms INTEGER,
-                status TEXT DEFAULT 'pending',
-                id_photo TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS listing_tags (
-                id SERIAL PRIMARY KEY,
-                listing_id INTEGER NOT NULL,
-                tag TEXT NOT NULL
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS listing_photos (
-                id SERIAL PRIMARY KEY,
-                listing_id INTEGER NOT NULL,
-                photo_path TEXT NOT NULL
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                sender_id INTEGER NOT NULL,
-                receiver_id INTEGER NOT NULL,
-                listing_id INTEGER NOT NULL,
-                message TEXT NOT NULL,
-                is_read INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS admins (
-                id SERIAL PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS reports (
-                id SERIAL PRIMARY KEY,
-                reporter_id INTEGER NOT NULL,
-                listing_id INTEGER NOT NULL,
-                reason TEXT NOT NULL,
-                description TEXT,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS ratings (
-                id SERIAL PRIMARY KEY,
-                rater_id INTEGER NOT NULL,
-                rated_user_id INTEGER NOT NULL,
-                listing_id INTEGER NOT NULL,
-                accuracy INTEGER,
-                communication INTEGER,
-                reliability INTEGER,
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-    else:
-        cursor.executescript('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                gender TEXT NOT NULL,
-                phone TEXT,
-                profile_pic TEXT,
-                is_verified INTEGER DEFAULT 0,
-                verify_token TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS listings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                apartment_type TEXT NOT NULL,
-                gender_preference TEXT NOT NULL,
-                rent REAL NOT NULL,
-                area TEXT NOT NULL,
-                latitude REAL,
-                longitude REAL,
-                rooms INTEGER,
-                status TEXT DEFAULT 'pending',
-                id_photo TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            );
-            CREATE TABLE IF NOT EXISTS listing_tags (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                listing_id INTEGER NOT NULL,
-                tag TEXT NOT NULL,
-                FOREIGN KEY (listing_id) REFERENCES listings(id)
-            );
-            CREATE TABLE IF NOT EXISTS listing_photos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                listing_id INTEGER NOT NULL,
-                photo_path TEXT NOT NULL,
-                FOREIGN KEY (listing_id) REFERENCES listings(id)
-            );
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sender_id INTEGER NOT NULL,
-                receiver_id INTEGER NOT NULL,
-                listing_id INTEGER NOT NULL,
-                message TEXT NOT NULL,
-                is_read INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (sender_id) REFERENCES users(id),
-                FOREIGN KEY (receiver_id) REFERENCES users(id),
-                FOREIGN KEY (listing_id) REFERENCES listings(id)
-            );
-            CREATE TABLE IF NOT EXISTS admins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS reports (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                reporter_id INTEGER NOT NULL,
-                listing_id INTEGER NOT NULL,
-                reason TEXT NOT NULL,
-                description TEXT,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (reporter_id) REFERENCES users(id),
-                FOREIGN KEY (listing_id) REFERENCES listings(id)
-            );
-            CREATE TABLE IF NOT EXISTS ratings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                rater_id INTEGER NOT NULL,
-                rated_user_id INTEGER NOT NULL,
-                listing_id INTEGER NOT NULL,
-                accuracy INTEGER,
-                communication INTEGER,
-                reliability INTEGER,
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (rater_id) REFERENCES users(id),
-                FOREIGN KEY (rated_user_id) REFERENCES users(id),
-                FOREIGN KEY (listing_id) REFERENCES listings(id)
-            );
-        ''')
-
-    # Create default admin if none exists
-    cursor.execute('SELECT COUNT(*) FROM admins')
-    count = cursor.fetchone()[0]
-    if count == 0:
-        cursor.execute(
-            q('INSERT INTO admins (email, password) VALUES (?, ?)'),
-            ('yazanawwad61@gmail.com', generate_password_hash('Rafeeq@2026'))
-        )
-
-    conn.commit()
-    conn.close()
-
-init_db()
-
-
-# ══════════════════════════════════════════════════════════════════
-# FRONTEND ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/sw.js')
-def sw():
-    return app.send_static_file('sw.js')
-
-@app.route('/listing/<int:listing_id>')
-def listing_page(listing_id):
-    return render_template('listing.html', listing_id=listing_id)
-
-@app.route('/messages')
-def messages_page():
-    return render_template('messages.html')
-
-
-# ══════════════════════════════════════════════════════════════════
-# AUTH ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/api/signup', methods=['POST'])
-def signup():
-    try:
-        data     = request.get_json()
-        name     = sanitize(data.get('name', ''))
-        email    = data.get('email', '').strip().lower()
-        password = data.get('password', '')
-        gender   = data.get('gender', '').strip().lower()
-        phone    = sanitize(data.get('phone', ''))
-
-        if not all([name, email, password, gender]):
-            return jsonify({'error': 'Name, email, password, and gender are required'}), 400
-        if gender not in ('male', 'female'):
-            return jsonify({'error': 'Gender must be male or female'}), 400
-        if len(password) < 6:
-            return jsonify({'error': 'Password must be at least 6 characters'}), 400
-
-        hashed_password = generate_password_hash(password)
-        verify_token    = secrets.token_urlsafe(32)
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        username = generate_username(name, cursor)
-        cursor.execute(q('''
-            INSERT INTO users (name, email, password, gender, phone, username, is_verified, verify_token)
-            VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-        '''), (name, email, hashed_password, gender, phone, username, verify_token))
-        conn.commit()
-        conn.close()
-
-        try:
-            verify_url = f"https://rafeeq-production.up.railway.app/api/verify-email/{verify_token}"
-            msg = MailMessage(
-                subject="Verify your Rafeeq account",
-                recipients=[email],
-                html=f"""
-                <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
-                    <h2 style="color:#2d6a4f;">Welcome to Rafeeq!</h2>
-                    <p>Please verify your email to activate your account.</p>
-                    <a href="{verify_url}"
-                       style="background:#2d6a4f;color:white;padding:12px 24px;
-                              text-decoration:none;border-radius:8px;display:inline-block;">
-                        Verify My Email
-                    </a>
-                </div>"""
-            )
-            mail.send(msg)
-        except Exception as mail_error:
-            print(f"Email send failed: {mail_error}")
-
-        return jsonify({'message': 'Account created. Please check your email to verify.'}), 201
-
-    except Exception as e:
-        print(f"Signup error: {e}")
-        if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
-            return jsonify({'error': 'An account with this email already exists'}), 409
-        return jsonify({'error': 'Something went wrong. Please try again.'}), 500
-
-
-@app.route('/api/verify-email/<token>', methods=['GET'])
-def verify_email(token):
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('SELECT id FROM users WHERE verify_token = ?'), (token,))
-        row = cursor.fetchone()
-
-        if not row:
-            conn.close()
-            return jsonify({'error': 'Invalid or expired verification link'}), 400
-
-        user_id = row[0] if DATABASE_URL else row['id']
-        cursor.execute(q('UPDATE users SET is_verified = 1, verify_token = NULL WHERE id = ?'), (user_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Email verified. You can now log in.'}), 200
-
-    except Exception as e:
-        print(f"Verify email error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    try:
-        data     = request.get_json()
-        email    = data.get('email', '').strip().lower()
-        password = data.get('password', '')
-
-        if not email or not password:
-            return jsonify({'error': 'Email and password are required'}), 400
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('SELECT * FROM users WHERE email = ?'), (email,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if not row:
-            return jsonify({'error': 'Incorrect email or password'}), 401
-
-        user = row_to_dict(cursor, row)
-
-        if not check_password_hash(user['password'], password):
-            return jsonify({'error': 'Incorrect email or password'}), 401
-        if not user['is_verified']:
-            return jsonify({'error': 'Please verify your email before logging in'}), 403
-
-        session['user_id']     = user['id']
-        session['user_name']   = user['name']
-        session['user_gender'] = user['gender']
-
-        return jsonify({
-            'message': 'Logged in successfully',
-            'user': {
-                'id':              user['id'],
-                'name':            user['name'],
-                'gender':          user['gender'],
-                'username':        user.get('username') or user['name'].lower().replace(' ', '.'),
-                'phone':           user.get('phone') or '',
-                'profile_picture': user.get('profile_picture') or ''
-            }
-        }), 200
-
-    except Exception as e:
-        print(f"Login error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    session.clear()
-    return jsonify({'message': 'Logged out successfully'}), 200
-
-
-@app.route('/api/me', methods=['GET'])
-def me():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('SELECT id, name, gender, phone, username, profile_picture FROM users WHERE id = ?'), (session['user_id'],))
-        row = cursor.fetchone()
-        conn.close()
-        if not row:
-            session.clear()
-            return jsonify({'error': 'Not logged in'}), 401
-        user = row_to_dict(cursor, row)
-        return jsonify({
-            'id':              user['id'],
-            'name':            user['name'],
-            'gender':          user['gender'],
-            'phone':           user.get('phone', '') or '',
-            'username':        user.get('username') or user['name'].lower().replace(' ', '.'),
-            'profile_picture': user.get('profile_picture', '') or ''
-        }), 200
-    except Exception as e:
-        print(f"Me error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-# ══════════════════════════════════════════════════════════════════
-# LISTING ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/api/listings', methods=['POST'])
-def create_listing():
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-
-        data              = request.get_json()
-        title             = sanitize(data.get('title', ''))
-        description       = sanitize(data.get('description', ''))
-        apartment_type    = data.get('apartment_type', '').strip().lower()
-        gender_preference = data.get('gender_preference', '').strip().lower()
-        rent              = data.get('rent')
-        area              = sanitize(data.get('area', ''))
-        latitude          = data.get('latitude')
-        longitude         = data.get('longitude')
-        rooms             = data.get('rooms')
-        tags              = data.get('tags', [])
-
-        if not all([title, apartment_type, gender_preference, rent, area]):
-            return jsonify({'error': 'Title, type, gender preference, rent, and area are required'}), 400
-        if apartment_type not in ('shared', 'private'):
-            return jsonify({'error': 'apartment_type must be shared or private'}), 400
-        if gender_preference not in ('male', 'female', 'any'):
-            return jsonify({'error': 'gender_preference must be male, female, or any'}), 400
-
-        conn   = get_db()
-        cursor = conn.cursor()
-
-        if DATABASE_URL:
-            cursor.execute('''
-                INSERT INTO listings
-                    (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
-                RETURNING id
-            ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area, latitude, longitude, rooms))
-            listing_id = cursor.fetchone()[0]
-        else:
-            cursor.execute('''
-                INSERT INTO listings
-                    (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-            ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area, latitude, longitude, rooms))
-            listing_id = cursor.lastrowid
-
-        for tag in tags:
-            cursor.execute(q('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)'),
-                           (listing_id, sanitize(tag)))
-
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Listing submitted for review', 'listing_id': listing_id}), 201
-
-    except Exception as e:
-        print(f"Create listing error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/listings', methods=['GET'])
-def get_listings():
-    try:
-        gender   = request.args.get('gender')
-        apt_type = request.args.get('type')
-        max_rent = request.args.get('max_rent')
-        sort     = request.args.get('sort', 'latest')
-
-        query  = '''
-            SELECT l.*, u.name AS owner_name
-            FROM listings l
-            JOIN users u ON l.user_id = u.id
-            WHERE l.status = 'approved'
-        '''
-        params = []
-
-        if gender:
-            query += q(' AND l.gender_preference = ?')
-            params.append(gender)
-        if apt_type:
-            query += q(' AND l.apartment_type = ?')
-            params.append(apt_type)
-        if max_rent:
-            query += q(' AND l.rent <= ?')
-            params.append(float(max_rent))
-
-        if sort == 'price_asc':
-            query += ' ORDER BY l.rent ASC'
-        elif sort == 'price_desc':
-            query += ' ORDER BY l.rent DESC'
-        else:
-            query += ' ORDER BY l.created_at DESC'
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        listings = rows_to_dicts(cursor, cursor.fetchall())
-
-        result = []
-        for listing in listings:
-            cursor.execute(q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing['id'],))
-            listing['tags'] = [r[0] if DATABASE_URL else r['tag'] for r in cursor.fetchall()]
-            cursor.execute(q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing['id'],))
-            listing['photos'] = [r[0] if DATABASE_URL else r['photo_path'] for r in cursor.fetchall()]
-            result.append(listing)
-
-        conn.close()
-        return jsonify(result), 200
-
-    except Exception as e:
-        print(f"Get listings error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/listings/<int:listing_id>', methods=['GET'])
-def get_listing(listing_id):
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('''
-            SELECT l.*, u.name AS owner_name, u.phone AS owner_phone,
-                   u.gender AS owner_gender, u.id AS owner_id,
-                   u.username AS owner_username
-            FROM listings l
-            JOIN users u ON l.user_id = u.id
-            WHERE l.id = ?
-        '''), (listing_id,))
-        row = cursor.fetchone()
-
-        if not row:
-            conn.close()
-            return jsonify({'error': 'Listing not found'}), 404
-
-        # Increment view counter
-        cursor.execute(q('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?'), (listing_id,))
-        conn.commit()
-
-        d = row_to_dict(cursor, row)
-        cursor.execute(q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing_id,))
-        d['tags'] = [r[0] if DATABASE_URL else r['tag'] for r in cursor.fetchall()]
-        cursor.execute(q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing_id,))
-        d['photos'] = [r[0] if DATABASE_URL else r['photo_path'] for r in cursor.fetchall()]
-
-        conn.close()
-        return jsonify(d), 200
-
-    except Exception as e:
-        print(f"Get listing error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/listings/<int:listing_id>/report', methods=['POST'])
-def report_listing(listing_id):
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-
-        data        = request.get_json()
-        reason      = data.get('reason', '').strip().lower()
-        description = sanitize(data.get('description', ''))
-
-        if reason not in ('fake', 'harassment', 'discrimination', 'other'):
-            return jsonify({'error': 'Invalid reason'}), 400
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('''
-            INSERT INTO reports (reporter_id, listing_id, reason, description)
-            VALUES (?, ?, ?, ?)
-        '''), (session['user_id'], listing_id, reason, description))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Report submitted.'}), 201
-
-    except Exception as e:
-        print(f"Report error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-# ══════════════════════════════════════════════════════════════════
-# MESSAGING ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/api/conversations', methods=['GET'])
-def get_conversations():
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-
-        user_id = session['user_id']
-        conn    = get_db()
-        cursor  = conn.cursor()
-
-        cursor.execute(q('''
-            SELECT
-                m.listing_id,
-                l.title AS listing_title,
-                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS other_user_id,
-                CASE WHEN m.sender_id = ? THEN ru.name ELSE su.name END AS other_user_name,
-                m.message AS last_message,
-                m.created_at AS last_message_time,
-                SUM(CASE WHEN m.is_read = 0 AND m.receiver_id = ? THEN 1 ELSE 0 END) AS unread_count
-            FROM messages m
-            JOIN listings l ON m.listing_id = l.id
-            JOIN users su ON m.sender_id = su.id
-            JOIN users ru ON m.receiver_id = ru.id
-            WHERE m.sender_id = ? OR m.receiver_id = ?
-            GROUP BY m.listing_id, l.title,
-                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END,
-                CASE WHEN m.sender_id = ? THEN ru.name ELSE su.name END,
-                m.message, m.created_at
-            ORDER BY m.created_at DESC
-        '''), (user_id, user_id, user_id, user_id, user_id, user_id, user_id))
-
-        conversations = rows_to_dicts(cursor, cursor.fetchall())
-        conn.close()
-        return jsonify(conversations), 200
-
-    except Exception as e:
-        print(f"Get conversations error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/messages/<int:listing_id>/<int:other_user_id>', methods=['GET'])
-def get_messages(listing_id, other_user_id):
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-
-        user_id = session['user_id']
-        conn    = get_db()
-        cursor  = conn.cursor()
-
-        cursor.execute(q('''
-            SELECT m.*, u.name AS sender_name
-            FROM messages m
-            JOIN users u ON m.sender_id = u.id
-            WHERE m.listing_id = ?
-            AND (
-                (m.sender_id = ? AND m.receiver_id = ?)
-                OR
-                (m.sender_id = ? AND m.receiver_id = ?)
-            )
-            ORDER BY m.created_at ASC
-        '''), (listing_id, user_id, other_user_id, other_user_id, user_id))
-
-        messages = rows_to_dicts(cursor, cursor.fetchall())
-
-        cursor.execute(q('''
-            UPDATE messages SET is_read = 1
-            WHERE listing_id = ? AND receiver_id = ? AND sender_id = ?
-        '''), (listing_id, user_id, other_user_id))
-        conn.commit()
-        conn.close()
-
-        return jsonify(messages), 200
-
-    except Exception as e:
-        print(f"Get messages error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/messages', methods=['POST'])
-@limiter.limit("50 per day")
-def send_message_http():
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-
-        data        = request.get_json()
-        receiver_id = data.get('receiver_id')
-        listing_id  = data.get('listing_id')
-        message     = sanitize(data.get('message', ''))
-
-        if not all([receiver_id, listing_id, message]):
-            return jsonify({'error': 'receiver_id, listing_id, and message are required'}), 400
-        if len(message) > 1000:
-            return jsonify({'error': 'Message cannot exceed 1000 characters'}), 400
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('''
-            INSERT INTO messages (sender_id, receiver_id, listing_id, message)
-            VALUES (?, ?, ?, ?)
-        '''), (session['user_id'], receiver_id, listing_id, message))
-        conn.commit()
-        conn.close()
-
-        return jsonify({'message': 'Message sent'}), 201
-
-    except Exception as e:
-        print(f"Send message error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-# ══════════════════════════════════════════════════════════════════
-# SOCKETIO EVENTS
-# ══════════════════════════════════════════════════════════════════
-
-@socketio.on('join_chat')
-def handle_join(data):
-    listing_id    = data.get('listing_id')
-    other_user_id = data.get('other_user_id')
-    user_id       = session.get('user_id')
-    if not user_id:
-        return
-    room = f"chat_{listing_id}_{min(user_id, other_user_id)}_{max(user_id, other_user_id)}"
-    join_room(room)
-    emit('joined', {'room': room})
-
-
-@socketio.on('send_message')
-def handle_message(data):
-    user_id = session.get('user_id')
-    if not user_id:
-        return
-
-    receiver_id = data.get('receiver_id')
-    listing_id  = data.get('listing_id')
-    message     = sanitize(data.get('message', ''))
-
-    if not message or len(message) > 1000:
-        return
-
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('''
-            INSERT INTO messages (sender_id, receiver_id, listing_id, message)
-            VALUES (?, ?, ?, ?)
-        '''), (user_id, receiver_id, listing_id, message))
-
-        cursor.execute(q('SELECT name FROM users WHERE id = ?'), (user_id,))
-        row    = cursor.fetchone()
-        sender_name = row[0] if DATABASE_URL else row['name']
-        conn.commit()
-        conn.close()
-
-        room = f"chat_{listing_id}_{min(user_id, receiver_id)}_{max(user_id, receiver_id)}"
-        emit('new_message', {
-            'sender_id':   user_id,
-            'sender_name': sender_name,
-            'receiver_id': receiver_id,
-            'listing_id':  listing_id,
-            'message':     message,
-            'created_at':  'just now'
-        }, room=room)
-
-    except Exception as e:
-        print(f"SocketIO message error: {e}")
-
-
-@socketio.on('leave_chat')
-def handle_leave(data):
-    listing_id    = data.get('listing_id')
-    other_user_id = data.get('other_user_id')
-    user_id       = session.get('user_id')
-    if not user_id:
-        return
-    room = f"chat_{listing_id}_{min(user_id, other_user_id)}_{max(user_id, other_user_id)}"
-    leave_room(room)
-
-
-
-# ══════════════════════════════════════════════════════════════════
-# PROFILE ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/profile/<username>')
-def profile_page(username):
-    return render_template('profile.html')
-
-
-@app.route('/api/profile/<username>', methods=['GET'])
-def get_profile(username):
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('SELECT id, name, username, profile_picture, created_at FROM users WHERE username = ?'), (username,))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return jsonify({'error': 'User not found'}), 404
-        user     = row_to_dict(cursor, row)
-        is_owner = 'user_id' in session and session['user_id'] == user['id']
-
-        # Get listings — owner sees all, visitors see approved only
-        if is_owner:
-            cursor.execute(q('''
-                SELECT id, title, rent, area, apartment_type, gender_preference,
-                       rooms, status, views, created_at
-                FROM listings WHERE user_id = ? ORDER BY created_at DESC
-            '''), (user['id'],))
-        else:
-            cursor.execute(q('''
-                SELECT id, title, rent, area, apartment_type, gender_preference,
-                       rooms, status, views, created_at
-                FROM listings WHERE user_id = ? AND status = 'approved' ORDER BY created_at DESC
-            '''), (user['id'],))
-
-        listings = rows_to_dicts(cursor, cursor.fetchall())
-
-        if listings:
-            ids = [l['id'] for l in listings]
-            ph  = ','.join(['%s' if DATABASE_URL else '?'] * len(ids))
-            cursor.execute(f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({ph}) ORDER BY id', ids)
-            photos = {}
-            for r in cursor.fetchall():
-                lid, path = (r[0], r[1]) if DATABASE_URL else (r['listing_id'], r['photo_path'])
-                photos.setdefault(lid, []).append(path)
-            for l in listings:
-                l['photos'] = photos.get(l['id'], [])
-
-        insights = None
-        if is_owner and listings:
-            ids = [l['id'] for l in listings]
-            ph  = ','.join(['%s' if DATABASE_URL else '?'] * len(ids))
-            cursor.execute(
-                f'SELECT listing_id, COUNT(DISTINCT sender_id) as cnt FROM messages WHERE listing_id IN ({ph}) AND sender_id != {"%s" if DATABASE_URL else "?"} GROUP BY listing_id',
-                ids + [user['id']]
-            )
-            msg_counts = {r[0]: r[1] for r in cursor.fetchall()}
-            for l in listings:
-                l['msg_count'] = msg_counts.get(l['id'], 0)
-            insights = {
-                'total_listings': len(listings),
-                'total_views':    sum(l.get('views') or 0 for l in listings),
-                'total_messages': sum(msg_counts.values()),
-            }
-
-        conn.close()
-        return jsonify({'user': user, 'listings': listings, 'is_owner': is_owner, 'insights': insights}), 200
-    except Exception as e:
-        print(f"Profile error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/users/me', methods=['PUT'])
-def update_user_profile():
-    try:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Login required'}), 401
-        name  = sanitize(request.form.get('name', '').strip())
-        phone = sanitize(request.form.get('phone', '').strip())
-        pic   = request.files.get('profile_picture')
-        if not name:
-            return jsonify({'error': 'Name is required'}), 400
-        pic_path = None
-        if pic and allowed_file(pic.filename):
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            ext      = pic.filename.rsplit('.', 1)[1].lower()
-            filename = f"avatar_{session['user_id']}_{secrets.token_hex(6)}.{ext}"
-            pic_path = os.path.join(UPLOAD_FOLDER, filename)
-            pic.save(pic_path)
-        conn   = get_db()
-        cursor = conn.cursor()
-        if pic_path:
-            cursor.execute(q('UPDATE users SET name=?, phone=?, profile_picture=? WHERE id=?'),
-                           (name, phone, pic_path, session['user_id']))
-        else:
-            cursor.execute(q('UPDATE users SET name=?, phone=? WHERE id=?'),
-                           (name, phone, session['user_id']))
-        session['user_name'] = name
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Updated'}), 200
-    except Exception as e:
-        print(f"Update profile error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-# ══════════════════════════════════════════════════════════════════
-# ADMIN ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/api/admin/listings/pending', methods=['GET'])
-def get_pending_listings():
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT l.*, u.name AS owner_name, u.email AS owner_email
-            FROM listings l
-            JOIN users u ON l.user_id = u.id
-            WHERE l.status = 'pending'
-            ORDER BY l.created_at ASC
-        ''')
-        listings = rows_to_dicts(cursor, cursor.fetchall())
-        conn.close()
-        return jsonify(listings), 200
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/listings/<int:listing_id>/approve', methods=['POST'])
-def approve_listing(listing_id):
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q("UPDATE listings SET status = 'approved' WHERE id = ?"), (listing_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': f'Listing {listing_id} approved'}), 200
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/listings/<int:listing_id>/reject', methods=['POST'])
-def reject_listing(listing_id):
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q("UPDATE listings SET status = 'rejected' WHERE id = ?"), (listing_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': f'Listing {listing_id} rejected'}), 200
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/reports', methods=['GET'])
-def get_reports():
-    try:
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT r.*, u.name AS reporter_name, l.title AS listing_title
-            FROM reports r
-            JOIN users u ON r.reporter_id = u.id
-            JOIN listings l ON r.listing_id = l.id
-            WHERE r.status = 'pending'
-            ORDER BY r.created_at ASC
-        ''')
-        reports = rows_to_dicts(cursor, cursor.fetchall())
-        conn.close()
-        return jsonify(reports), 200
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-# ══════════════════════════════════════════════════════════════════
-# ADMIN AUTH ROUTES
-# ══════════════════════════════════════════════════════════════════
-
-@app.route('/admin')
-@app.route('/admin/login')
-def admin_login_page():
-    if 'admin_id' in session:
-        return redirect('/admin/dashboard')
-    return render_template('admin_login.html')
-
-
-@app.route('/admin/dashboard')
-def admin_dashboard_page():
-    if 'admin_id' not in session:
-        return redirect('/admin/login')
-    return render_template('admin_dashboard.html')
-
-
-@app.route('/api/admin/login', methods=['POST'])
-def admin_login():
-    try:
-        data     = request.get_json()
-        email    = data.get('email', '').strip().lower()
-        password = data.get('password', '')
-
-        if not email or not password:
-            return jsonify({'error': 'Email and password are required'}), 400
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('SELECT * FROM admins WHERE email = ?'), (email,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if not row:
-            return jsonify({'error': 'Incorrect email or password'}), 401
-
-        admin = row_to_dict(cursor, row)
-
-        if not check_password_hash(admin['password'], password):
-            return jsonify({'error': 'Incorrect email or password'}), 401
-
-        session['admin_id']    = admin['id']
-        session['admin_email'] = admin['email']
-
-        return jsonify({'message': 'Logged in successfully'}), 200
-
-    except Exception as e:
-        print(f"Admin login error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/logout', methods=['POST'])
-def admin_logout():
-    session.pop('admin_id', None)
-    session.pop('admin_email', None)
-    return jsonify({'message': 'Logged out'}), 200
-
-
-@app.route('/api/admin/stats', methods=['GET'])
-def admin_stats():
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        conn   = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT COUNT(*) FROM users")
-        total_users = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM listings WHERE status = 'approved'")
-        approved_listings = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM listings WHERE status = 'pending'")
-        pending_listings = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM messages")
-        total_messages = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM reports WHERE status = 'pending'")
-        pending_reports = cursor.fetchone()[0]
-
-        conn.close()
-        return jsonify({
-            'total_users':       total_users,
-            'approved_listings': approved_listings,
-            'pending_listings':  pending_listings,
-            'total_messages':    total_messages,
-            'pending_reports':   pending_reports
-        }), 200
-
-    except Exception as e:
-        print(f"Admin stats error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/users', methods=['GET'])
-def admin_get_users():
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT id, name, email, gender, phone, is_verified, created_at
-            FROM users ORDER BY created_at DESC
-        ''')
-        users = rows_to_dicts(cursor, cursor.fetchall())
-        conn.close()
-        return jsonify(users), 200
-
-    except Exception as e:
-        print(f"Admin get users error: {e}")
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/admins', methods=['GET'])
-def admin_get_admins():
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, email FROM admins ORDER BY id ASC')
-        admins = rows_to_dicts(cursor, cursor.fetchall())
-        conn.close()
-        return jsonify(admins), 200
-
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/admins', methods=['POST'])
-def admin_create_admin():
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        data     = request.get_json()
-        email    = data.get('email', '').strip().lower()
-        password = data.get('password', '')
-
-        if not email or not password:
-            return jsonify({'error': 'Email and password are required'}), 400
-        if len(password) < 6:
-            return jsonify({'error': 'Password must be at least 6 characters'}), 400
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q('INSERT INTO admins (email, password) VALUES (?, ?)'),
-                       (email, generate_password_hash(password)))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': f'Admin {email} created successfully'}), 201
-
-    except Exception as e:
-        if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
-            return jsonify({'error': 'An admin with this email already exists'}), 409
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-@app.route('/api/admin/reports/<int:report_id>/resolve', methods=['POST'])
-def resolve_report(report_id):
-    try:
-        if 'admin_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        conn   = get_db()
-        cursor = conn.cursor()
-        cursor.execute(q("UPDATE reports SET status = 'resolved' WHERE id = ?"), (report_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'message': 'Report resolved'}), 200
-
-    except Exception as e:
-        return jsonify({'error': 'Something went wrong.'}), 500
-
-
-# ══════════════════════════════════════════════════════════════════
-if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0')
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Listings — Rafeeq</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <meta name="theme-color" content="#2d6a4f"/>
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
+  <script src="/static/lang.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --bg: #f8f7f4; --surface: #fff; --border: #e8e4dc; --accent: #2d6a4f; --accent2: #e76f51; --text: #1a1a2e; --muted: #6b7280; --shadow: 0 2px 16px rgba(0,0,0,0.08); }
+    body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* NAVBAR */
+    .navbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 68px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+    .logo { font-size: 1.6rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; text-decoration: none; }
+    .logo span { color: var(--accent2); }
+    .nav-links { display: flex; gap: 10px; align-items: center; }
+    .lang-toggle { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-family: 'Tajawal', sans-serif; font-size: 0.85rem; cursor: pointer; }
+    .lang-toggle:hover { border-color: var(--accent); }
+
+    /* PROFILE DROPDOWN */
+    .messages-btn { display:flex; align-items:center; gap:6px; color:var(--accent); font-weight:600; text-decoration:none; font-size:0.9rem; padding:9px 14px; border-radius:10px; border:2px solid transparent; transition:all 0.2s; }
+    .messages-btn:hover { background:#f0faf4; border-color:var(--accent); }
+    .profile-dropdown { position: relative; }
+    .profile-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--text); transition: all 0.2s; }
+    .profile-btn:hover { border-color: var(--accent); background: #f0faf4; }
+    .dropdown-menu { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 180px; overflow: hidden; z-index: 200; }
+    .dropdown-menu.open { display: block; }
+    .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-size: 14px; font-weight: 500; color: var(--text); cursor: pointer; transition: background 0.15s; text-decoration: none; border: none; background: none; width: 100%; font-family: 'Tajawal', sans-serif; }
+    .dropdown-item:hover { background: var(--bg); }
+    .dropdown-item.active { color: var(--accent); font-weight: 700; background: #f0faf4; }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .dropdown-item.danger { color: var(--accent2); }
+    .dropdown-item.danger:hover { background: #fff5f0; }
+
+    /* PAGE */
+    .container { max-width: 860px; margin: 0 auto; padding: 40px 24px 64px; }
+    .page-header { margin-bottom: 32px; }
+    .page-header h1 { font-size: 26px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .page-header p { font-size: 15px; color: var(--muted); }
+
+    /* LISTING CARD */
+    .listing-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 16px; display: flex; gap: 20px; align-items: flex-start; transition: box-shadow 0.2s; }
+    .listing-card:hover { box-shadow: var(--shadow); }
+    .listing-img { width: 100px; height: 76px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: #e8f4ea; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .listing-img img { width: 100px; height: 76px; border-radius: 10px; object-fit: cover; }
+    .listing-body { flex: 1; min-width: 0; }
+    .listing-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .listing-title { font-size: 16px; font-weight: 700; color: var(--text); text-decoration: none; }
+    .listing-title:hover { color: var(--accent); }
+    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .status-approved { background: #e8f5e9; color: #2d6a4f; }
+    .status-pending  { background: #fff3e0; color: #e65100; }
+    .status-rejected { background: #fce4ec; color: #880e4f; }
+    .listing-meta { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .listing-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-view   { padding: 7px 16px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; transition: border-color 0.2s; }
+    .btn-view:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-edit   { padding: 7px 16px; background: #e3f2fd; color: #1565c0; border: none; border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-edit:hover { background: #bbdefb; }
+    .btn-delete { padding: 7px 16px; background: #fce4ec; color: #880e4f; border: none; border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-delete:hover { background: #f8bbd0; }
+
+    /* EMPTY STATE */
+    .empty { text-align: center; padding: 80px 20px; color: var(--muted); }
+    .empty-icon { font-size: 3.5rem; margin-bottom: 16px; }
+    .empty h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .empty p { font-size: 15px; margin-bottom: 24px; }
+    .btn-primary { padding: 12px 28px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.2s; }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .loading { text-align: center; padding: 80px 0; color: var(--muted); font-size: 15px; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* EDIT MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 20px; padding: 32px; width: 100%; max-width: 520px; margin: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .modal-header h2 { font-size: 20px; font-weight: 800; }
+    .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #aaa; }
+    .field-label { font-size: 12px; font-weight: 700; color: #888; display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .field-input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 15px; margin-bottom: 14px; outline: none; }
+    .field-input:focus { border-color: var(--accent); }
+    .field-textarea { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 15px; margin-bottom: 14px; outline: none; resize: vertical; height: 90px; }
+    .field-textarea:focus { border-color: var(--accent); }
+    .field-select { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 15px; margin-bottom: 14px; outline: none; background: #fff; }
+    .field-select:focus { border-color: var(--accent); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .tag-label { display: flex; align-items: center; gap: 6px; background: #f5f5f0; padding: 7px 12px; border-radius: 20px; cursor: pointer; font-size: 14px; }
+    .btn-save { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+    .btn-save:hover { opacity: 0.85; }
+    .modal-error { color: var(--accent2); font-size: 13px; text-align: center; margin-top: 12px; min-height: 20px; }
+    .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .photo-item { position: relative; padding-top: 75%; border-radius: 8px; overflow: hidden; background: #f0ede8; }
+    .photo-item img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .photo-item-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .photo-add-tile { padding-top: 75%; border-radius: 8px; border: 2px dashed var(--border); cursor: pointer; position: relative; transition: border-color 0.2s; background: var(--bg); }
+    .photo-add-tile:hover { border-color: var(--accent); }
+    .photo-add-tile span { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); font-size: 22px; gap: 3px; }
+    .photo-add-tile span small { font-size: 11px; font-weight: 600; }
+    .btn-photo { padding: 7px 16px; background: #e3f2fd; color: #1565c0; border: none; border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-photo:hover { background: #bbdefb; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="logo">&#x631;&#x641;&#x64A;&#x642; <span>Rafeeq</span></a>
+  <div class="nav-links">
+    <button class="lang-toggle" onclick="toggleLang()"></button>
+    <a href="/messages" class="messages-btn">&#x1F4AC; Messages</a>
+    <div class="profile-dropdown" id="profileDropdown">
+      <button class="profile-btn" onclick="toggleDropdown()">
+        <span id="navAvatarWrap">&#x1F464;</span> <span id="profileName">...</span> <span>&#x25BE;</span>
+      </button>
+      <div class="dropdown-menu" id="dropdownMenu">
+        <a href="#" id="viewProfileLink" class="dropdown-item">&#x1F464; View Profile</a>
+        <a href="/my-listings" class="dropdown-item active">&#x1F4CB; My Listings</a>
+        <button class="dropdown-item" onclick="openSettings();toggleDropdown()">&#x2699;&#xFE0F; Settings</button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item danger" onclick="logout()">&#x1F6AA; Logout</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>📋 My Listings</h1>
+    <p>Manage your posted apartments</p>
+  </div>
+
+  <div id="loadingState" class="loading">
+    <div class="spinner"></div>
+    Loading your listings...
+  </div>
+  <div id="listingsContainer" style="display:none;"></div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>✏️ Edit Listing</h2>
+      <button class="modal-close" onclick="closeEdit()">&#x2715;</button>
+    </div>
+    <label class="field-label">Title *</label>
+    <input id="editTitle" class="field-input" type="text" placeholder="e.g. Room in Sweifieh"/>
+    <label class="field-label">Description</label>
+    <textarea id="editDescription" class="field-textarea" placeholder="Describe your apartment..."></textarea>
+    <div class="grid-2">
+      <div>
+        <label class="field-label">Type *</label>
+        <select id="editType" class="field-select">
+          <option value="shared">Shared</option>
+          <option value="private">Private</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Gender Preference *</label>
+        <select id="editGender" class="field-select">
+          <option value="male">Males Only</option>
+          <option value="female">Females Only</option>
+          <option value="any">Any Gender</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <label class="field-label">Monthly Rent (JD) *</label>
+        <input id="editRent" class="field-input" type="number" placeholder="e.g. 150"/>
+      </div>
+      <div>
+        <label class="field-label">Number of Rooms</label>
+        <input id="editRooms" class="field-input" type="number" placeholder="e.g. 3"/>
+      </div>
+    </div>
+    <label class="field-label">Area *</label>
+    <select id="editArea" class="field-select">
+      <option value="Sweifieh">Sweifieh</option>
+      <option value="Abdoun">Abdoun</option>
+      <option value="Shmeisani">Shmeisani</option>
+      <option value="Jubeiha">Jubeiha</option>
+      <option value="Tla Al Ali">Tla Al Ali</option>
+      <option value="Khalda">Khalda</option>
+      <option value="Gardens">Gardens</option>
+      <option value="Medina Munawara St">Medina Munawara St</option>
+      <option value="University of Jordan Area">University of Jordan Area</option>
+      <option value="Mecca St">Mecca St</option>
+      <option value="Downtown">Downtown</option>
+      <option value="Jabal Amman">Jabal Amman</option>
+      <option value="Other">Other</option>
+    </select>
+    <label class="field-label">Lifestyle Tags</label>
+    <div class="tags-wrap">
+      <label class="tag-label"><input type="checkbox" class="edit-tag" value="Doesn't Smoke"> Doesn't Smoke</label>
+      <label class="tag-label"><input type="checkbox" class="edit-tag" value="Prays"> Prays</label>
+      <label class="tag-label"><input type="checkbox" class="edit-tag" value="Quiet Lifestyle"> Quiet Lifestyle</label>
+      <label class="tag-label"><input type="checkbox" class="edit-tag" value="Students Only"> Students Only</label>
+      <label class="tag-label"><input type="checkbox" class="edit-tag" value="Doesn't Bring Guests"> Doesn't Bring Guests</label>
+      <label class="tag-label"><input type="checkbox" class="edit-tag" value="Pet Friendly"> Pet Friendly</label>
+    </div>
+    <button class="btn-save" onclick="saveEdit()">Save Changes</button>
+    <p class="modal-error" id="editError"></p>
+  </div>
+</div>
+
+<script>
+  let currentUser = null;
+  let editingId   = null;
+
+  // ── DROPDOWN ──────────────────────────────────────────────────
+  function toggleDropdown() {
+    document.getElementById('dropdownMenu').classList.toggle('open');
+  }
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('profileDropdown').contains(e.target)) {
+      document.getElementById('dropdownMenu').classList.remove('open');
+    }
+  });
+
+  // ── AUTH ──────────────────────────────────────────────────────
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/me');
+      if (!res.ok) { window.location.href = '/'; return; }
+      currentUser = await res.json();
+      document.getElementById('profileName').textContent = currentUser.name.split(' ')[0];
+    const vpl = document.getElementById('viewProfileLink');
+    if (vpl) vpl.href = '/profile/' + (currentUser.username || currentUser.name.toLowerCase().replace(/ /g,'.'));
+    const avatarW = document.getElementById('navAvatarWrap');
+    if (avatarW && currentUser.profile_picture) {
+      const src = currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
+      avatarW.innerHTML = '<img src="'+src+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"/>';
+    }
+    } catch (e) { window.location.href = '/'; }
+  }
+
+  async function logout() {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/';
+  }
+
+  // ── LOAD MY LISTINGS ──────────────────────────────────────────
+  async function loadMyListings() {
+    try {
+      const res      = await fetch('/api/my-listings');
+      const listings = await res.json();
+      document.getElementById('loadingState').style.display = 'none';
+      const container = document.getElementById('listingsContainer');
+      container.style.display = 'block';
+
+      if (!listings.length) {
+        container.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">🏠</div>
+            <h2>No listings yet</h2>
+            <p>You haven't posted any apartments. Post your first listing and find a roommate!</p>
+            <a href="/" class="btn-primary">+ Post a Listing</a>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = listings.map(l => {
+        const photo = (l.photos && l.photos.length > 0) ? l.photos[0] : null;
+        const imgHTML = photo
+          ? `<img src="${photo.startsWith('http') ? photo : '/' + photo}" alt="${l.title}"/>`
+          : '🏠';
+        const statusClass = `status-${l.status}`;
+        const statusText  = l.status === 'approved' ? '✅ Live' : l.status === 'pending' ? '⏳ Pending Review' : '❌ Rejected';
+        return `
+          <div class="listing-card" id="card-${l.id}">
+            <div class="listing-img">${imgHTML}</div>
+            <div class="listing-body">
+              <div class="listing-top">
+                <a href="/listing/${l.id}" class="listing-title">${l.title}</a>
+                <span class="status-badge ${statusClass}">${statusText}</span>
+              </div>
+              <div class="listing-meta">
+                📍 ${l.area} &nbsp;·&nbsp; ${l.rent} JD/month &nbsp;·&nbsp; ${l.apartment_type}
+                &nbsp;·&nbsp; ${l.created_at ? l.created_at.substring(0,10) : ''}
+              </div>
+              <div class="listing-actions">
+                <a href="/listing/${l.id}" class="btn-view">👁 View</a>
+                <button class="btn-edit" onclick="openEdit(${JSON.stringify(l).replace(/"/g, '&quot;')})">✏️ Edit</button>
+                <button class="btn-photo" onclick="openPhotos(${l.id})">📷 Photos</button>
+                <button class="btn-delete" onclick="deleteListing(${l.id})">🗑 Delete</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('loadingState').innerHTML = '<p style="color:#e76f51;">Failed to load listings.</p>';
+    }
+  }
+
+  // ── DELETE ────────────────────────────────────────────────────
+  async function deleteListing(id) {
+    if (!confirm('Are you sure you want to delete this listing? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/listings/${id}/delete-own`, { method: 'POST' });
+      if (res.ok) {
+        document.getElementById(`card-${id}`)?.remove();
+        // If no cards left, reload to show empty state
+        if (!document.querySelector('.listing-card')) loadMyListings();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete listing.');
+      }
+    } catch (e) { alert('Something went wrong.'); }
+  }
+
+  // ── EDIT ──────────────────────────────────────────────────────
+  function openEdit(listing) {
+    editingId = listing.id;
+    document.getElementById('editTitle').value       = listing.title || '';
+    document.getElementById('editDescription').value = listing.description || '';
+    document.getElementById('editType').value        = listing.apartment_type || 'shared';
+    document.getElementById('editGender').value      = listing.gender_preference || 'any';
+    document.getElementById('editRent').value        = listing.rent || '';
+    document.getElementById('editRooms').value       = listing.rooms || '';
+    document.getElementById('editArea').value        = listing.area || '';
+    document.getElementById('editError').textContent = '';
+
+    // Set tags
+    const currentTags = listing.tags || [];
+    document.querySelectorAll('.edit-tag').forEach(cb => {
+      cb.checked = currentTags.includes(cb.value);
+    });
+
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  function closeEdit() {
+    document.getElementById('editModal').classList.remove('open');
+    editingId = null;
+  }
+
+  async function saveEdit() {
+    const title             = document.getElementById('editTitle').value.trim();
+    const description       = document.getElementById('editDescription').value.trim();
+    const apartment_type    = document.getElementById('editType').value;
+    const gender_preference = document.getElementById('editGender').value;
+    const rent              = document.getElementById('editRent').value;
+    const rooms             = document.getElementById('editRooms').value;
+    const area              = document.getElementById('editArea').value;
+    const tags              = Array.from(document.querySelectorAll('.edit-tag:checked')).map(cb => cb.value);
+
+    if (!title || !apartment_type || !gender_preference || !rent || !area) {
+      document.getElementById('editError').textContent = 'Please fill in all required fields.'; return;
+    }
+
+    try {
+      const res  = await fetch(`/api/listings/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, apartment_type, gender_preference, rent: parseFloat(rent), rooms: parseInt(rooms) || null, area, tags })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        closeEdit();
+        loadMyListings();
+      } else {
+        document.getElementById('editError').textContent = data.error || 'Failed to save changes.';
+      }
+    } catch (e) { document.getElementById('editError').textContent = 'Something went wrong.'; }
+  }
+
+
+  function openSettings() {
+    if (!currentUser) return;
+    document.getElementById('settingsName').value = currentUser.name || '';
+    document.getElementById('settingsPhone').value = currentUser.phone || '';
+    document.getElementById('settingsMsg').textContent = '';
+    const preview = document.getElementById('settingsAvatarPreview');
+    if (currentUser.profile_picture) {
+      const src = currentUser.profile_picture.startsWith('http') ? currentUser.profile_picture : '/' + currentUser.profile_picture;
+      preview.innerHTML = '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;"/>';
+    } else { preview.textContent = (currentUser.name||'?')[0].toUpperCase(); }
+    document.getElementById('settingsModal').style.display = 'flex';
+  }
+  function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
+  function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+      const reader=new FileReader();
+      reader.onload=e=>{document.getElementById('settingsAvatarPreview').innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;"/>';};
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+  async function saveSettings() {
+    const name=document.getElementById('settingsName').value.trim();
+    const phone=document.getElementById('settingsPhone').value.trim();
+    const pic=document.getElementById('settingsPicInput').files[0];
+    const msgEl=document.getElementById('settingsMsg');
+    if (!name){msgEl.style.color='#e76f51';msgEl.textContent='Name is required.';return;}
+    const fd=new FormData(); fd.append('name',name); fd.append('phone',phone);
+    if (pic) fd.append('profile_picture',pic);
+    try {
+      const res=await fetch('/api/users/me',{method:'PUT',body:fd});
+      const data=await res.json();
+      if(res.ok){msgEl.style.color='#2d6a4f';msgEl.textContent='\u2705 Saved!';currentUser.name=name;currentUser.phone=phone;setTimeout(()=>closeSettings(),1200);}
+      else{msgEl.style.color='#e76f51';msgEl.textContent=data.error;}
+    } catch(e){msgEl.style.color='#e76f51';msgEl.textContent='Something went wrong.';}
+  }
+
+
+  // ── PHOTO MANAGEMENT ─────────────────────────────────────────
+  let currentPhotoListingId = null;
+  let currentPhotos = [];
+
+  async function openPhotos(listingId) {
+    currentPhotoListingId = listingId;
+    document.getElementById('photoMsg').textContent = '';
+    document.getElementById('photoModal').style.display = 'flex';
+    await loadPhotos(listingId);
+  }
+
+  function closePhotos() {
+    document.getElementById('photoModal').style.display = 'none';
+    currentPhotoListingId = null;
+    currentPhotos = [];
+    // Reload listings to reflect any photo changes
+    loadMyListings();
+  }
+
+  async function loadPhotos(listingId) {
+    try {
+      const res  = await fetch('/api/listings/' + listingId);
+      const data = await res.json();
+      currentPhotos = (data.photos || []).map((p, i) => ({ id: i, path: p }));
+      renderPhotoGrid();
+    } catch(e) { console.error(e); }
+  }
+
+  function renderPhotoGrid() {
+    const grid = document.getElementById('photoGrid');
+    if (!grid) return;
+    let html = currentPhotos.map((p, i) => {
+      const src = p.path.startsWith('http') ? p.path : '/' + p.path;
+      return '<div class="photo-item"><img src="' + src + '" alt="photo"/>'
+           + '<button class="photo-item-remove" onclick="removePhoto(' + i + ')">&#x2715;</button></div>';
+    }).join('');
+    if (currentPhotos.length < 10) {
+      html += '<div class="photo-add-tile" onclick="document.getElementById('photoUploadInput').click()">'
+            + '<span>&#x1F4F7;<small>Add</small></span></div>';
+    }
+    grid.innerHTML = html;
+  }
+
+  async function removePhoto(index) {
+    const photo = currentPhotos[index];
+    if (!photo) return;
+    try {
+      const res = await fetch('/api/listings/' + currentPhotoListingId + '/photos/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_path: photo.path })
+      });
+      if (res.ok) {
+        currentPhotos.splice(index, 1);
+        renderPhotoGrid();
+        document.getElementById('photoMsg').textContent = '✅ Photo removed.';
+        setTimeout(() => { document.getElementById('photoMsg').textContent = ''; }, 2000);
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  async function uploadNewPhotos(input) {
+    if (!input.files || !input.files.length) return;
+    const remaining = 10 - currentPhotos.length;
+    if (remaining <= 0) {
+      document.getElementById('photoMsg').textContent = 'Maximum 10 photos reached.';
+      return;
+    }
+    const files = Array.from(input.files).slice(0, remaining);
+    input.value = '';
+    const formData = new FormData();
+    files.forEach(f => formData.append('photos', f));
+    try {
+      document.getElementById('photoMsg').textContent = 'Uploading...';
+      const res  = await fetch('/api/listings/' + currentPhotoListingId + '/photos', {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('photoMsg').textContent = '✅ Photos uploaded!';
+        await loadPhotos(currentPhotoListingId);
+        setTimeout(() => { document.getElementById('photoMsg').textContent = ''; }, 2000);
+      } else {
+        document.getElementById('photoMsg').style.color = '#e76f51';
+        document.getElementById('photoMsg').textContent = data.error || 'Upload failed.';
+      }
+    } catch(e) { document.getElementById('photoMsg').textContent = 'Something went wrong.'; }
+  }
+
+  // ── INIT ──────────────────────────────────────────────────────
+  checkAuth().then(() => loadMyListings());
+</script>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:20px;padding:32px;width:100%;max-width:460px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <h2 style="font-size:20px;font-weight:800;">&#x2699;&#xFE0F; Account Settings</h2>
+      <button onclick="closeSettings()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;">&#x2715;</button>
+    </div>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div id="settingsAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:#2d6a4f;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;margin:0 auto 12px;overflow:hidden;"></div>
+      <button onclick="document.getElementById('settingsPicInput').click()" style="padding:7px 16px;background:#f0faf4;color:#2d6a4f;border:1px solid #b7e4c7;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">&#x1F4F7; Change Photo</button>
+      <input type="file" id="settingsPicInput" accept="image/*" style="display:none;" onchange="previewAvatar(this)"/>
+    </div>
+    <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Full Name</label>
+    <input id="settingsName" type="text" style="width:100%;padding:11px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:14px;outline:none;"/>
+    <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Phone Number</label>
+    <input id="settingsPhone" type="text" style="width:100%;padding:11px 14px;border:1px solid #e8e4dc;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:15px;margin-bottom:20px;outline:none;"/>
+    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Save Changes</button>
+    <p id="settingsMsg" style="font-size:13px;text-align:center;margin-top:12px;min-height:20px;"></p>
+  </div>
+</div>
+
+<!-- PHOTO MANAGEMENT MODAL -->
+<div id="photoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:400;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:20px;padding:32px;width:100%;max-width:500px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:20px;font-weight:800;">📷 Apartment Photos</h2>
+      <button onclick="closePhotos()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;">&#x2715;</button>
+    </div>
+    <p style="font-size:13px;color:#888;margin-bottom:16px;">First photo is the cover. Max 10 photos.</p>
+    <div class="photo-grid" id="photoGrid"></div>
+    <input type="file" id="photoUploadInput" accept="image/*" multiple style="display:none;" onchange="uploadNewPhotos(this)"/>
+    <p id="photoMsg" style="font-size:13px;color:#2d6a4f;text-align:center;min-height:20px;margin-top:8px;"></p>
+  </div>
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>

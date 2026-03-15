@@ -75,6 +75,14 @@
             cursor: pointer; transition: border-color 0.2s;
         }
         .lang-toggle:hover { border-color: var(--accent); }
+        .photo-upload-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+        .photo-thumb-wrap { position: relative; padding-top: 75%; border-radius: 8px; overflow: hidden; background: #f0ede8; }
+        .photo-thumb-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .photo-thumb-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .photo-add-btn { padding-top: 75%; border-radius: 8px; border: 2px dashed var(--border); background: var(--bg); cursor: pointer; position: relative; transition: border-color 0.2s; }
+        .photo-add-btn:hover { border-color: var(--accent); }
+        .photo-add-btn span { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; color: var(--muted); gap: 4px; }
+        .photo-add-btn span small { font-size: 11px; font-weight: 600; }
         .hero {
             background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #40916c 100%);
             padding: 64px 32px; text-align: center; color: white;
@@ -290,6 +298,11 @@
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Doesn't Bring Guests"> Doesn't Bring Guests</label>
         <label style="display:flex;align-items:center;gap:6px;background:#f5f5f0;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px;"><input type="checkbox" class="tag-checkbox" value="Pet Friendly"> Pet Friendly</label>
       </div>
+      <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">📸 Apartment Photos <span style="color:#aaa;font-weight:400;text-transform:none;">(up to 10)</span></label>
+      <div class="photo-upload-grid" id="photoPreviewGrid"></div>
+      <p style="font-size:11px;color:#aaa;margin-bottom:20px;">Photos help renters see your space. First photo will be the cover.</p>
+      <input type="file" id="plPhotos" accept="image/*" multiple style="display:none;" onchange="handlePhotoUpload(this)"/>
+
       <label style="font-size:12px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="pl_id_label">🪪 National ID Photo *</label>
       <div id="idUploadArea" style="border:2px dashed #e8e4dc;border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-bottom:6px;transition:border-color 0.2s;" onclick="document.getElementById('plIdPhoto').click()">
         <div id="idUploadLabel" style="color:#aaa;font-size:14px;" data-i18n="pl_id_hint">Click to upload your National ID photo</div>
@@ -455,6 +468,8 @@ function closePostListing() {
     document.getElementById('plLat').value = ''; document.getElementById('plLng').value = '';
     document.getElementById('idUploadArea').style.borderColor = '#e8e4dc';
     document.getElementById('idUploadLabel').textContent = t('pl_id_hint');
+    selectedPhotos = [];
+    renderPhotoGrid();
     if (pinPickerMarker) { pinPickerMarker.remove(); pinPickerMarker = null; }
     if (pinPickerMap)    { pinPickerMap.remove();    pinPickerMap = null; }
 }
@@ -469,6 +484,37 @@ function initPinPickerMap() {
         if (pinPickerMarker) pinPickerMarker.setLngLat(e.lngLat);
         else pinPickerMarker = new mapboxgl.Marker({color:'#2d6a4f'}).setLngLat(e.lngLat).addTo(pinPickerMap);
     });
+}
+
+let selectedPhotos = [];
+
+function renderPhotoGrid() {
+    const grid = document.getElementById('photoPreviewGrid');
+    if (!grid) return;
+    let html = selectedPhotos.map((file, i) => {
+        const url = URL.createObjectURL(file);
+        return '<div class="photo-thumb-wrap"><img src="' + url + '"/>'
+             + '<button class="photo-thumb-remove" onclick="removePhoto(' + i + ')">&#x2715;</button></div>';
+    }).join('');
+    if (selectedPhotos.length < 10) {
+        html += '<div class="photo-add-btn" onclick="document.getElementById('plPhotos').click()">'
+              + '<span>&#x1F4F7;<small>Add Photo</small></span></div>';
+    }
+    grid.innerHTML = html;
+}
+
+function removePhoto(index) {
+    selectedPhotos.splice(index, 1);
+    renderPhotoGrid();
+}
+
+function handlePhotoUpload(input) {
+    if (!input.files) return;
+    const newFiles = Array.from(input.files);
+    const remaining = 10 - selectedPhotos.length;
+    selectedPhotos = selectedPhotos.concat(newFiles.slice(0, remaining));
+    input.value = '';
+    renderPhotoGrid();
 }
 
 function handleIdUpload(input) {
@@ -514,6 +560,9 @@ async function submitListing() {
     formData.append('longitude',          longitude);
     formData.append('tags',               JSON.stringify(tags));
     formData.append('id_photo',           idPhoto);
+    selectedPhotos.forEach((file, i) => {
+        formData.append('photos', file);
+    });
 
     try {
         const res  = await fetch('/api/listings', { method: 'POST', body: formData });
@@ -567,6 +616,7 @@ async function submitListing() {
   }
 
 checkAuth().then(() => {
+    renderPhotoGrid();
     const action = new URLSearchParams(window.location.search).get('action');
     if (action === 'login')  showLogin();
     if (action === 'signup') showSignup();
