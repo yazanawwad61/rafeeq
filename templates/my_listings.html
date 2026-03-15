@@ -271,7 +271,7 @@
       container.innerHTML = listings.map(l => {
         const photo = (l.photos && l.photos.length > 0) ? l.photos[0] : null;
         const imgHTML = photo
-          ? `<img src="${photo.startsWith('http') ? photo : '/' + photo}" alt="${l.title}"/>`
+          ? `<img src="${photo.startsWith('http') || photo.startsWith('data:') ? photo : '/' + photo}" alt="${l.title}"/>`
           : '🏠';
         const statusClass = `status-${l.status}`;
         const statusText  = l.status === 'approved' ? '✅ Live' : l.status === 'pending' ? '⏳ Pending Review' : '❌ Rejected';

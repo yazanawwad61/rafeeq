@@ -817,12 +817,14 @@ def get_listing(listing_id):
             conn.close()
             return jsonify({'error': 'Listing not found'}), 404
 
-        # Increment view counter
-        cursor.execute(
+        # Save description BEFORE any other query resets cursor.description
+        d = row_to_dict(cursor, row)
+
+        # Increment view counter using a separate cursor so description stays intact
+        cur2 = conn.cursor()
+        cur2.execute(
             q('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?'), (listing_id,))
         conn.commit()
-
-        d = row_to_dict(cursor, row)
         cursor.execute(
             q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing_id,))
         d['tags'] = [r[0] if DATABASE_URL else r['tag']
