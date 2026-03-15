@@ -1272,6 +1272,90 @@ def update_user_profile():
 # ══════════════════════════════════════════════════════════════════
 
 
+@app.route('/api/admin/listings/approved', methods=['GET'])
+def get_approved_listings():
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+        query = '''
+            SELECT l.id, l.title, l.rent, l.area, l.apartment_type, l.gender_preference,
+                   l.status, l.created_at, u.name AS owner_name, u.email AS owner_email
+            FROM listings l
+            JOIN users u ON l.user_id = u.id
+            WHERE l.status = 'approved'
+        '''
+        params = []
+        if date_from:
+            query += q(' AND l.created_at >= ?')
+            params.append(date_from)
+        if date_to:
+            query += q(' AND l.created_at <= ?')
+            params.append(date_to + ' 23:59:59')
+        query += ' ORDER BY l.created_at DESC'
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        listings = rows_to_dicts(cursor, cursor.fetchall())
+        conn.close()
+        return jsonify(listings), 200
+    except Exception as e:
+        print(f"Get approved listings error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/listings/<int:listing_id>/id-photo', methods=['GET'])
+def get_listing_id_photo(listing_id):
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('SELECT id_photo FROM listings WHERE id = ?'), (listing_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        id_photo = row[0] if DATABASE_URL else row['id_photo']
+        if not id_photo:
+            return jsonify({'error': 'No ID photo for this listing'}), 404
+        # Serve base64 as an HTML page so browser can display it
+        if id_photo.startswith('data:'):
+            html = f'''<!DOCTYPE html><html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+<img src="{id_photo}" style="max-width:100%;max-height:100vh;border-radius:8px;"/>
+</body></html>'''
+            return html, 200, {'Content-Type': 'text/html'}
+        return jsonify({'id_photo': id_photo}), 200
+    except Exception as e:
+        print(f"Get ID photo error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
+@app.route('/api/admin/listings/<int:listing_id>/delete', methods=['POST'])
+def delete_listing(listing_id):
+    try:
+        if 'admin_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            q('DELETE FROM listing_tags   WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM listing_photos WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM messages       WHERE listing_id = ?'), (listing_id,))
+        cursor.execute(
+            q('DELETE FROM listings       WHERE id = ?'),         (listing_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': f'Listing {listing_id} deleted'}), 200
+    except Exception as e:
+        print(f"Delete listing error: {e}")
+        return jsonify({'error': 'Something went wrong.'}), 500
+
+
 @app.route('/api/admin/listings/pending', methods=['GET'])
 def get_pending_listings():
     try:
