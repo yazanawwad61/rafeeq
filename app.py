@@ -294,7 +294,12 @@ init_db()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
+
+
+@app.route('/map')
+def map_page():
+    return render_template('map.html', mapbox_token=os.environ.get('MAPBOX_TOKEN', ''))
 
 
 @app.route('/sw.js')
@@ -310,6 +315,11 @@ def listing_page(listing_id):
 @app.route('/messages')
 def messages_page():
     return render_template('messages.html')
+
+
+@app.route('/my-listings')
+def my_listings_page():
+    return render_template('my_listings.html')
 
 
 # ══════════════════════════════════════════════════════════════════
