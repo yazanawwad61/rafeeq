@@ -593,6 +593,11 @@ def get_listings():
             query += q(' AND l.rent <= ?')
             params.append(float(max_rent))
 
+        area = request.args.get('area')
+        if area:
+            query += q(' AND l.area = ?')
+            params.append(area)
+
         if sort == 'price_asc':
             query += ' ORDER BY l.rent ASC'
         elif sort == 'price_desc':
@@ -605,20 +610,35 @@ def get_listings():
         cursor.execute(query, params)
         listings = rows_to_dicts(cursor, cursor.fetchall())
 
-        result = []
-        for listing in listings:
+        if listings:
+            ids = [l['id'] for l in listings]
+            ph = ','.join(['%s' if DATABASE_URL else '?'] * len(ids))
+            # Bulk fetch tags (1 query)
             cursor.execute(
-                q('SELECT tag FROM listing_tags WHERE listing_id = ?'), (listing['id'],))
-            listing['tags'] = [r[0] if DATABASE_URL else r['tag']
-                               for r in cursor.fetchall()]
+                f'SELECT listing_id, tag FROM listing_tags WHERE listing_id IN ({ph})', ids)
+            tags_map = {}
+            for r in cursor.fetchall():
+                lid, tag = (r[0], r[1]) if DATABASE_URL else (
+                    r['listing_id'], r['tag'])
+                tags_map.setdefault(lid, []).append(tag)
+            # Bulk fetch photos (1 query)
             cursor.execute(
-                q('SELECT photo_path FROM listing_photos WHERE listing_id = ?'), (listing['id'],))
-            listing['photos'] = [r[0] if DATABASE_URL else r['photo_path']
-                                 for r in cursor.fetchall()]
-            result.append(listing)
+                f'SELECT listing_id, photo_path FROM listing_photos WHERE listing_id IN ({ph})', ids)
+            photos_map = {}
+            for r in cursor.fetchall():
+                lid, photo = (r[0], r[1]) if DATABASE_URL else (
+                    r['listing_id'], r['photo_path'])
+                photos_map.setdefault(lid, []).append(photo)
+            for listing in listings:
+                listing['tags'] = tags_map.get(listing['id'], [])
+                listing['photos'] = photos_map.get(listing['id'], [])
+        else:
+            for listing in listings:
+                listing['tags'] = []
+                listing['photos'] = []
 
         conn.close()
-        return jsonify(result), 200
+        return jsonify(listings), 200
 
     except Exception as e:
         print(f"Get listings error: {e}")
@@ -1048,18 +1068,27 @@ def update_user_profile():
         pic = request.files.get('profile_picture')
         if not name:
             return jsonify({'error': 'Name is required'}), 400
-        pic_path = None
+        pic_b64 = None
         if pic and allowed_file(pic.filename):
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            ext = pic.filename.rsplit('.', 1)[1].lower()
-            filename = f"avatar_{session['user_id']}_{secrets.token_hex(6)}.{ext}"
-            pic_path = os.path.join(UPLOAD_FOLDER, filename)
-            pic.save(pic_path)
+            import base64
+            from PIL import Image as PILImage
+            import io
+            # Resize to max 300x300 and convert to base64 for persistent storage
+            img = PILImage.open(pic)
+            img.thumbnail((300, 300), PILImage.LANCZOS)
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=85)
+            buf.seek(0)
+            ext_mime = 'image/jpeg'
+            pic_b64 = 'data:' + ext_mime + ';base64,' + \
+                base64.b64encode(buf.read()).decode('utf-8')
         conn = get_db()
         cursor = conn.cursor()
-        if pic_path:
+        if pic_b64:
             cursor.execute(q('UPDATE users SET name=?, phone=?, profile_picture=? WHERE id=?'),
-                           (name, phone, pic_path, session['user_id']))
+                           (name, phone, pic_b64, session['user_id']))
         else:
             cursor.execute(q('UPDATE users SET name=?, phone=? WHERE id=?'),
                            (name, phone, session['user_id']))
