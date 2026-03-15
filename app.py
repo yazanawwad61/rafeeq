@@ -501,17 +501,19 @@ def create_listing():
         if 'user_id' not in session:
             return jsonify({'error': 'Login required'}), 401
 
-        data = request.get_json()
-        title = sanitize(data.get('title', ''))
-        description = sanitize(data.get('description', ''))
-        apartment_type = data.get('apartment_type', '').strip().lower()
-        gender_preference = data.get('gender_preference', '').strip().lower()
-        rent = data.get('rent')
-        area = sanitize(data.get('area', ''))
-        latitude = data.get('latitude')
-        longitude = data.get('longitude')
-        rooms = data.get('rooms')
-        tags = data.get('tags', [])
+        # Reads from FormData (multipart)
+        title = sanitize(request.form.get('title', ''))
+        description = sanitize(request.form.get('description', ''))
+        apartment_type = request.form.get('apartment_type', '').strip().lower()
+        gender_preference = request.form.get(
+            'gender_preference', '').strip().lower()
+        rent = request.form.get('rent')
+        area = sanitize(request.form.get('area', ''))
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        rooms = request.form.get('rooms')
+        tags = json.loads(request.form.get('tags', '[]'))
+        id_photo_file = request.files.get('id_photo')
 
         if not all([title, apartment_type, gender_preference, rent, area]):
             return jsonify({'error': 'Title, type, gender preference, rent, and area are required'}), 400
@@ -519,6 +521,27 @@ def create_listing():
             return jsonify({'error': 'apartment_type must be shared or private'}), 400
         if gender_preference not in ('male', 'female', 'any'):
             return jsonify({'error': 'gender_preference must be male, female, or any'}), 400
+        if not id_photo_file or not id_photo_file.filename:
+            return jsonify({'error': 'National ID photo is required'}), 400
+
+        # Store ID photo as base64 (no filesystem dependency)
+        import base64
+        import io
+        id_b64 = None
+        try:
+            from PIL import Image as PILImage
+            img = PILImage.open(id_photo_file)
+            img.thumbnail((800, 800), PILImage.LANCZOS)
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=85)
+            buf.seek(0)
+            id_b64 = 'data:image/jpeg;base64,' + \
+                base64.b64encode(buf.read()).decode('utf-8')
+        except Exception as e:
+            print(f"ID photo processing error: {e}")
+            return jsonify({'error': 'Could not process ID photo. Please try a different image.'}), 400
 
         conn = get_db()
         cursor = conn.cursor()
@@ -527,36 +550,51 @@ def create_listing():
             cursor.execute('''
                 INSERT INTO listings
                     (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+                     rent, area, latitude, longitude, rooms, status, id_photo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
                 RETURNING id
             ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area, latitude, longitude, rooms))
+                  gender_preference, rent, area,
+                  float(latitude) if latitude else None,
+                  float(longitude) if longitude else None,
+                  int(rooms) if rooms else None, id_b64))
             listing_id = cursor.fetchone()[0]
         else:
             cursor.execute('''
                 INSERT INTO listings
                     (user_id, title, description, apartment_type, gender_preference,
-                     rent, area, latitude, longitude, rooms, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                     rent, area, latitude, longitude, rooms, status, id_photo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
             ''', (session['user_id'], title, description, apartment_type,
-                  gender_preference, rent, area, latitude, longitude, rooms))
+                  gender_preference, rent, area,
+                  float(latitude) if latitude else None,
+                  float(longitude) if longitude else None,
+                  int(rooms) if rooms else None, id_b64))
             listing_id = cursor.lastrowid
 
         for tag in tags:
             cursor.execute(q('INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)'),
                            (listing_id, sanitize(tag)))
 
-        # Save apartment photos (optional, up to 10)
+        # Store apartment photos as base64
         photo_files = request.files.getlist('photos')
         for photo_file in photo_files[:10]:
-            if photo_file and allowed_file(photo_file.filename):
-                ext = photo_file.filename.rsplit('.', 1)[1].lower()
-                photo_name = f"listing_{listing_id}_{secrets.token_hex(6)}.{ext}"
-                photo_path = os.path.join(UPLOAD_FOLDER, photo_name)
-                photo_file.save(photo_path)
-                cursor.execute(q('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)'),
-                               (listing_id, photo_path))
+            if photo_file and photo_file.filename:
+                try:
+                    from PIL import Image as PILImage
+                    img = PILImage.open(photo_file)
+                    img.thumbnail((1200, 1200), PILImage.LANCZOS)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    buf = io.BytesIO()
+                    img.save(buf, format='JPEG', quality=85)
+                    buf.seek(0)
+                    photo_b64 = 'data:image/jpeg;base64,' + \
+                        base64.b64encode(buf.read()).decode('utf-8')
+                    cursor.execute(q('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)'),
+                                   (listing_id, photo_b64))
+                except Exception as pe:
+                    print(f"Photo processing error: {pe}")
 
         conn.commit()
         conn.close()
@@ -925,16 +963,26 @@ def upload_listing_photos(listing_id):
         remaining = max(0, 10 - current_count)
         saved = 0
 
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         for photo_file in photo_files[:remaining]:
-            if photo_file and allowed_file(photo_file.filename):
-                ext = photo_file.filename.rsplit('.', 1)[1].lower()
-                photo_name = f"listing_{listing_id}_{secrets.token_hex(6)}.{ext}"
-                photo_path = os.path.join(UPLOAD_FOLDER, photo_name)
-                photo_file.save(photo_path)
-                cursor.execute(q('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)'),
-                               (listing_id, photo_path))
-                saved += 1
+            if photo_file and photo_file.filename:
+                try:
+                    import base64
+                    import io
+                    from PIL import Image as PILImage
+                    img = PILImage.open(photo_file)
+                    img.thumbnail((1200, 1200), PILImage.LANCZOS)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    buf = io.BytesIO()
+                    img.save(buf, format='JPEG', quality=85)
+                    buf.seek(0)
+                    photo_b64 = 'data:image/jpeg;base64,' + \
+                        base64.b64encode(buf.read()).decode('utf-8')
+                    cursor.execute(q('INSERT INTO listing_photos (listing_id, photo_path) VALUES (?, ?)'),
+                                   (listing_id, photo_b64))
+                    saved += 1
+                except Exception as pe:
+                    print(f"Photo upload error: {pe}")
 
         conn.commit()
         conn.close()
