@@ -238,7 +238,7 @@ async function saveSettings() {
     try {
       const res=await fetch('/api/users/me',{method:'PUT',body:fd});
       const data=await res.json();
-      if (res.ok){msgEl.style.color='#2d6a4f';msgEl.textContent='\u2705 Saved!'; if(window._currentUser){window._currentUser.name=name;window._currentUser.phone=phone;} setTimeout(()=>closeSettings(),1200);}
+      if (res.ok){msgEl.style.color='#2d6a4f';msgEl.textContent='\u2705 Saved!'; fetch('/api/me').then(r=>r.json()).then(u=>{ window._currentUser=u; currentUser=u; setTimeout(()=>closeSettings(),1200); });}
       else{msgEl.style.color='#e76f51';msgEl.textContent=data.error;}
     } catch(e){msgEl.style.color='#e76f51';msgEl.textContent='Something went wrong.';}
 }
