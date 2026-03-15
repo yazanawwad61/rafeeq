@@ -497,7 +497,7 @@ function renderPhotoGrid() {
              + '<button class="photo-thumb-remove" onclick="removePhoto(' + i + ')">&#x2715;</button></div>';
     }).join('');
     if (selectedPhotos.length < 10) {
-        html += '<div class="photo-add-btn" onclick="document.getElementById('plPhotos').click()">'
+        html += '<div class="photo-add-btn" onclick="triggerPhotoInput()">'
               + '<span>&#x1F4F7;<small>Add Photo</small></span></div>';
     }
     grid.innerHTML = html;
@@ -507,6 +507,8 @@ function removePhoto(index) {
     selectedPhotos.splice(index, 1);
     renderPhotoGrid();
 }
+
+function triggerPhotoInput() { document.getElementById('plPhotos').click(); }
 
 function handlePhotoUpload(input) {
     if (!input.files) return;
