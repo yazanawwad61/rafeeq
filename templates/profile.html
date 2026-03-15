@@ -218,7 +218,7 @@
 
     const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', {month:'long', year:'numeric'}) : '';
     const avatarContent = user.profile_picture
-      ? `<img src="${photoUrl(user.profile_picture)}" alt="${user.name}"/>`
+      ? `<img src="${user.profile_picture.startsWith('data:') ? user.profile_picture : photoUrl(user.profile_picture)}" alt="${user.name}"/>`
       : (user.name||'?')[0].toUpperCase();
 
     const insightsHTML = is_owner && insights ? `
