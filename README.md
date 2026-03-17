@@ -7,6 +7,16 @@
 
 ---
 
+## 🌍 What is Rafeeq?
+
+Finding student housing in Jordan is broken. Facebook groups are flooded with unverified posts, there's no way to filter by gender, no trust system, and no structure. Students waste hours scrolling through irrelevant listings with no way to verify who they're dealing with.
+
+Rafeeq fixes this. It's a full-stack web platform that brings structure, verification, and a modern experience to student housing in Amman. Every listing requires a National ID upload reviewed by admins before going live. Every apartment is pinned on an interactive map. And every conversation happens in real time — no WhatsApp numbers exchanged until trust is established.
+
+Built stage by stage as a portfolio project, Rafeeq demonstrates a complete production-ready web application — from database design to deployment.
+
+---
+
 ## 📸 Screenshots
 
 ### Homepage
